@@ -166,7 +166,7 @@ if __name__ == '__main__':
     file_exists = os.path.isfile(output_path)
 
     # Write to the output file.
-    # output_array.to_csv(output_path, mode='a', index=False, header=not file_exists)
+    output_array.to_csv(output_path, mode='a', index=False, header=not file_exists)
 
     # print(pd.DataFrame().from_records(pd.DataFrame().from_records(output_array["dist"])["FrameTime"]))
     PMPV.from_data(output_array)
