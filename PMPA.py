@@ -1,3 +1,4 @@
+import PMPV
 import datetime
 import os
 import json
@@ -34,27 +35,32 @@ def delta(array_delta):
 def frequency(array_dist, step, bins, percentage=True):
     # Calculate the frequency of values within specified bins.
     # Define bin edges for faster processing
-        bin_edges = np.arange(0, (bins + 1) * step, step)
+    bin_edges = np.arange(0, (bins + 1) * step, step)
 
-        # Clip values at the maximum bin edge (overflow)
-        array_dist_clipped = array_dist.clip(upper=bin_edges[-1])
+    # Clip values at the maximum bin edge (overflow)
+    array_dist_clipped = array_dist.clip(upper=bin_edges[-1])
 
-        # Digitize the values in the DataFrame (binning)
-        binned = np.digitize(array_dist_clipped.values, bin_edges, right=False) - 1
+    # Digitize the values in the DataFrame (binning)
+    binned = np.digitize(array_dist_clipped.values, bin_edges, right=False) - 1
 
-        # Initialize the output DataFrame
-        dist_out = pd.DataFrame(0, index=bin_edges[:-1], columns=array_dist.columns)
+    # Initialize the output DataFrame
+    dist_out = pd.DataFrame(0, index=bin_edges[:], columns=array_dist.columns)
 
-        # Count occurrences in each bin for each column
-        for col_idx, col_name in enumerate(array_dist.columns):
-            counts = np.bincount(binned[:, col_idx], minlength=bins)
-            dist_out[col_name] = counts[:bins]
+    # Count occurrences in each bin for each column
+    for col_idx, col_name in enumerate(array_dist.columns):
+        counts = np.bincount(binned[:, col_idx], minlength=bins + 1)
+        dist_out[col_name] = counts[:bins + 1]
 
-        # Convert counts to percentages if needed
-        if percentage:
-            dist_out = dist_out.div(dist_out.sum(), axis=1) * 100
+    # Convert counts to percentages if needed
+    if percentage:
+        dist_out = dist_out.div(dist_out.sum(), axis=1)
 
-        return dist_out
+    return dist_out
+
+
+def summary_dict():
+
+    return 0
 
 
 def file_opener():
@@ -62,7 +68,10 @@ def file_opener():
     root = tk.Tk()
     root.withdraw()
 
+    # Set the path.
     file_paths = filedialog.askopenfilenames()
+
+    # Count files.
     files_qty = len(file_paths)
 
     return file_paths, files_qty
@@ -84,7 +93,7 @@ def output_path():
     return opath
 
 
-# Main script execution starts here
+# Main script execution starts here.
 if __name__ == '__main__':
 
     # Get the config json file.
@@ -95,7 +104,10 @@ if __name__ == '__main__':
     file_range = file_opener()
 
     # Set output path.
-    opath = output_path()
+    output_path = output_path()
+
+    # Set output DataFrame.
+    output_array = pd.DataFrame()
 
     # Process each selected file
     for idx, file in enumerate(file_range[0]):
@@ -103,13 +115,10 @@ if __name__ == '__main__':
         # Initialize data from the source file.
         data_collected = file_reader(file)
 
-        # Create times_list variable to replace constant data_collected referencing
+        # Create times_list variable to replace constant data_collected referencing.
         times_list = data_collected[["FrameTime", "DisplayedTime"]]
 
-        # Calculating differences in the consecutive times
-        delta_list = delta(times_list)
-
-        # Data means are used in a few places so instead of recalculating them, here's the variable
+        # Data means are used in a few places so instead of recalculating them, here's the variable.
         data_means = data_collected[
             [
                 "FrameTime",
@@ -128,27 +137,39 @@ if __name__ == '__main__':
             "presentMode": data_collected["PresentMode"].iloc[-1],
             "api": data_collected["PresentRuntime"].iloc[-1],
             "record": len(data_collected.index),
-            # The source "CPUStartTime" column is in seconds while all the calculations are in milliseconds
-            # Thence, CPUStartTime needs to be converted to milliseconds (sec x 1000)
+            # The source "CPUStartTime" column is in seconds while all the calculations are in milliseconds.
+            # Thence, CPUStartTime needs to be converted to milliseconds (sec x 1000).
             "tTime": data_collected["CPUStartTime"].iloc[-1]*1000,
-            "average": [data_means.to_dict()],
-            "waitTime": [data_collected[["CPUWait", "GPUWait"]].sum().to_dict()],
-            "utilStat": [data_collected[["CPUUtilization", "GPUUtilization"]].quantile(config["util_quantiles"]).to_dict()],
-            "lows": [low(times_list, l_bins=config["low_n%"]).to_dict()],
-            "percentiles": [times_list.quantile(config["frame_quantiles"]).to_dict()],
-            "mad": [times_list.sub(data_means[["FrameTime", "DisplayedTime"]]).abs().mean().to_dict()],
-            "std": [times_list.std().to_dict()],
-            "skew": [times_list.skew().to_dict()],
-            "kurt": [times_list.kurt().to_dict()],
-            "delta_dist": [frequency(delta_list, config["delta_bins"]["step"], config["delta_bins"]["bins"]).to_dict()],
-            "dist": [frequency(times_list, config["dist_bins"]["step"], config["dist_bins"]["bins"]).to_dict()]
+            "mean": data_means.to_dict(),
+            "waitTime": data_collected[["CPUWait", "GPUWait"]].sum().to_dict(),
+            "utilStat":
+                data_collected[["CPUUtilization", "GPUUtilization"]].quantile(config["util_quantiles"]).to_dict(),
+            "lows": low(times_list, l_bins=config["low_n%"]).to_dict(),
+            "percentiles": times_list.quantile(config["frame_quantiles"]).to_dict(),
+            "mad": times_list.sub(data_means[["FrameTime", "DisplayedTime"]]).abs().mean().to_dict(),
+            "std": times_list.std().to_dict(),
+            "skew": times_list.skew().to_dict(),
+            "kurt": times_list.kurt().to_dict(),
+            "delta_dist":
+                frequency(delta(times_list), config["delta_bins"]["step"], config["delta_bins"]["bins"]).to_dict(),
+            "dist":
+                frequency(times_list, config["dist_bins"]["step"], config["dist_bins"]["bins"]).to_dict()
         }
 
-        # Append the summarized data to the output file
-        pd.DataFrame([summary_data]).to_csv(opath, mode='a', index=False, header=False)
-
-        # Display progress
+        # Append the summarized data to the output DataFrame.
+        output_array = pd.concat([output_array, pd.DataFrame([summary_data])])
+        # Display progress.
         progress = int((idx + 1) / file_range[1] * 100)
-        print(f"\rProgress: {progress}%", end="")
+        print(f"\rProcessing Data ... Progress: {progress}%", end="")
 
-    print("\nProcessing complete. Output file created on the Desktop.")
+    # Check if file exists.
+    file_exists = os.path.isfile(output_path)
+
+    # Write to the output file.
+    # output_array.to_csv(output_path, mode='a', index=False, header=not file_exists)
+
+    # print(pd.DataFrame().from_records(pd.DataFrame().from_records(output_array["dist"])["FrameTime"]))
+    PMPV.from_data(output_array)
+
+    # Info when completed.
+    print(f"\rProcessing complete. Output file created on the Desktop.", end="")
