@@ -2,8 +2,6 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as grid_spec
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
-import tkinter as tk
 
 
 def from_data(array, shape=True):
@@ -63,7 +61,7 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
             axes[i_d].set_xlim([0.0, 67])
             axes[i_d].set_ylim([0.0, top + 3 * step])
             axes[i_d].set_xticks(ticks_x)
-            axes[i_d].set_yticks(ticks=ticks_y, labels=list(data_list.keys()))
+            axes[i_d].set_yticks(ticks=ticks_y, labels=reversed(list(data_list.keys())))
             axes[i_d].tick_params(axis='both', which='major', labelsize=6)
 
     fig.tight_layout(pad=-0.5)
@@ -78,15 +76,16 @@ def bar_dist_plot(gs, fig, data_list):
     ax = fig.add_subplot(gs[0, 2])
     color = [
         'white',
-        'lightgrey',
+        'whitesmoke',
         'lightsteelblue',
         'cornflowerblue',
         'green',
         'green',
         'cornflowerblue',
         'lightsteelblue',
-        'lightgrey'
+        'whitesmoke'
     ]
+
     for key in key_list:
         lab_col = data_list[key].transpose()
         dist_df = pd.concat([dist_df, lab_col])
@@ -97,34 +96,38 @@ def bar_dist_plot(gs, fig, data_list):
 
     dist_df = dist_df.reset_index()
     dist_df['fName'] = pd.DataFrame(ext_key_list)
+    # dist_df.sort_values(by=[0.5, 'fName'],inplace=True)
 
-    for i, file in enumerate(key_list):
+    for i, file in enumerate(reversed(key_list)):
+
         frame_time_data = dist_df[(dist_df['fName'] == file) & (dist_df['index'] == 'FrameTime')].iloc[0, 1:-1]
         displayed_time_data = dist_df[(dist_df['fName'] == file) & (dist_df['index'] == 'DisplayedTime')].iloc[0, 1:-1]
-        print(frame_time_data)
-        print(displayed_time_data)
+
+        ax.hlines(y=i*2-0.5, xmin=0, xmax=67, colors='0.8', lw=1)
+
         # Plot FrameTime
         ax.barh(
             i * 2, frame_time_data, color=color,
             left=frame_time_data.cumsum() - frame_time_data,
-            label=f'{file} FrameTime' if i == 0 else ""
+            height=0.4
         )
 
+        #ax.hlines(y=i * 2 - 0.25, xmin=0, xmax=0.5, colors='0.8', lw=5)
+
+        ax.vlines(x=frame_time_data[:5].sum(), ymin=i*2-0.25, ymax=i*2+0.25, colors='red')
         # Plot DisplayedTime
         ax.barh(
             i * 2 + 1, displayed_time_data, color=color,
             left=displayed_time_data.cumsum() - displayed_time_data,
-            label=f'{file} DisplayedTime' if i == 0 else ""
+            height=0.4
         )
+        ax.vlines(x=displayed_time_data[:5].sum(), ymin=i*2+0.75, ymax=i*2+1.25, colors='red')
 
     # Customizing the chart
-    ax.set_yticks([i * 2 + 0.5 for i in range(len(key_list))])
-    ax.set_yticklabels(key_list)
-    ax.set_xlabel("Values")
-    ax.set_xlim([0.0, 67])
-    ax.set_title("FrameTime and DisplayedTime Percentiles by File")
-    ax.legend(loc='upper right')
-
+    ax.get_yaxis().set_visible(False)
+    ax.set_ylim([-0.5, len(ext_key_list) + 3.5])
+    ax.set_xlim([0.0, 67.00])
+    ax.tick_params(axis='both', which='major', labelsize=6)
     return 0
 
 
@@ -138,22 +141,13 @@ def main(array):
     fig = plt.figure(figsize=(10, 6))
     gs = grid_spec.GridSpec(1, 3, figure=fig)
 
+    c_mean = array.iloc[3, :].div(array.iloc[2, :])
+    array = array.transpose()
+    array['c_mean'] = c_mean
+    array = array.sort_values(by='c_mean').transpose()
+
     dist_plot(gs, fig, array.iloc[14])
     bar_dist_plot(gs, fig, array.iloc[8])
 
     plt.show()
-
-    '''root = tk.Tk()
-    root.title('Plots')
-
-    distribution = FigureCanvasTkAgg(fig, master=root)
-    distribution.draw()
-
-    toolbar = NavigationToolbar2Tk(distribution, root)
-    toolbar.update()
-
-    distribution.get_tk_widget().pack()
-
-    root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root))
-    root.mainloop()'''
     return 0
