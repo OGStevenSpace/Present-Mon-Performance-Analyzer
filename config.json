@@ -1,5 +1,15 @@
 {
-  "frame_quantiles": [0.00, 0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99, 1.00],
+  "frame_quantiles": [0.00, 0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99,0.999, 1.00],
+  "frame_quantiles_colors": [
+    "white",
+    "whitesmoke",
+    "lightsteelblue",
+    "cornflowerblue",
+    "green",
+    "green",
+    "cornflowerblue",
+    "lightsteelblue",
+    "whitesmoke"],
   "util_quantiles": [0.00, 0.50, 1.00],
   "low_n%": [0.05, 0.01],
   "delta_bins": {

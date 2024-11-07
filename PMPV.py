@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as grid_spec
+import json
 
 
 def from_data(array, shape=True):
@@ -68,23 +69,18 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
     fig.subplots_adjust(left=0.1, right=0.99)
 
 
-def bar_dist_plot(gs, fig, data_list):
+def bar_dist_plot(gs, fig, data_list, color):
 
     key_list = data_list.keys()
+    rows = len(key_list)
     ext_key_list = [item for item in key_list for _ in range(2)]
     dist_df = pd.DataFrame()
     ax = fig.add_subplot(gs[0, 2])
-    color = [
-        'white',
-        'whitesmoke',
-        'lightsteelblue',
-        'cornflowerblue',
-        'green',
-        'green',
-        'cornflowerblue',
-        'lightsteelblue',
-        'whitesmoke'
-    ]
+
+    p = -(rows / 4)
+    hline_size = 0.05 + 3 ** p
+    hline_size = -1 / hline_size
+    hline_size += 21
 
     for key in key_list:
         lab_col = data_list[key].transpose()
@@ -112,9 +108,9 @@ def bar_dist_plot(gs, fig, data_list):
             height=0.4
         )
 
-        ax.hlines(y=i * 2, xmin=0, xmax=0.5, colors='royalblue', lw=2)
-
+        ax.vlines(x=0, ymin=i*2-0.40, ymax=i*2+0.40, colors='royalblue', lw=4)
         ax.vlines(x=frame_time_data[:5].sum(), ymin=i*2-0.25, ymax=i*2+0.25, colors='red')
+
         # Plot DisplayedTime
         ax.barh(
             i * 2 + 1, displayed_time_data, color=color,
@@ -122,8 +118,7 @@ def bar_dist_plot(gs, fig, data_list):
             height=0.4
         )
 
-        ax.hlines(y=i * 2 + 1, xmin=0, xmax=0.5, colors='orange', lw=2)
-
+        ax.vlines(x=0, ymin=i*2+0.60, ymax=i*2+1.40, colors='orange', lw=4)
         ax.vlines(x=displayed_time_data[:5].sum(), ymin=i*2+0.75, ymax=i*2+1.25, colors='red')
 
     # Customizing the chart
@@ -134,12 +129,11 @@ def bar_dist_plot(gs, fig, data_list):
     return 0
 
 
-def on_closing(root):
-    root.quit()
-    root.destroy()
-
-
 def main(array):
+
+    # Get the config json file.
+    with open('config.json', "r") as file:
+        config = json.load(file)
 
     fig = plt.figure(figsize=(10, 6))
     gs = grid_spec.GridSpec(1, 3, figure=fig)
@@ -150,7 +144,7 @@ def main(array):
     array = array.sort_values(by='c_mean').transpose()
 
     dist_plot(gs, fig, array.iloc[14])
-    bar_dist_plot(gs, fig, array.iloc[8])
+    bar_dist_plot(gs, fig, array.iloc[8], color=config["frame_quantiles_colors"])
 
     plt.show()
     return 0
