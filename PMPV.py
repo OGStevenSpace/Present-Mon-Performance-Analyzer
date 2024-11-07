@@ -112,7 +112,7 @@ def bar_dist_plot(gs, fig, data_list):
             height=0.4
         )
 
-        #ax.hlines(y=i * 2 - 0.25, xmin=0, xmax=0.5, colors='0.8', lw=5)
+        ax.hlines(y=i * 2, xmin=0, xmax=0.5, colors='royalblue', lw=2)
 
         ax.vlines(x=frame_time_data[:5].sum(), ymin=i*2-0.25, ymax=i*2+0.25, colors='red')
         # Plot DisplayedTime
@@ -121,6 +121,9 @@ def bar_dist_plot(gs, fig, data_list):
             left=displayed_time_data.cumsum() - displayed_time_data,
             height=0.4
         )
+
+        ax.hlines(y=i * 2 + 1, xmin=0, xmax=0.5, colors='orange', lw=2)
+
         ax.vlines(x=displayed_time_data[:5].sum(), ymin=i*2+0.75, ymax=i*2+1.25, colors='red')
 
     # Customizing the chart
