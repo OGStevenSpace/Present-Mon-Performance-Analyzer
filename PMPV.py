@@ -4,12 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as grid_spec
 
 
-def load_data(array, config, reshape_data=True):
-    """Processes data array, reshaping if specified, and passes it to the main plotting function."""
-    processed_data = reshape(array) if reshape_data else array
-    main(processed_data, config)
-
-
 def reshape(array):
     """Reshape the array by flattening nested dictionaries and setting up a new DataFrame structure."""
     reshaped_data = []
@@ -120,8 +114,10 @@ def bar_dist_plot(grid_spec, figure, data, color):
     ax.tick_params(axis='both', which='major', labelsize=6)
 
 
-def main(data, config):
+def main(array, config, reshape_data=True, sort=False, asc=True):
     """Main function to handle configuration and generate plots."""
+    data = reshape(array) if reshape_data else array
+
     fig = plt.figure(figsize=(10, 6))
     fig.canvas.manager.set_window_title('Test')
     gs = grid_spec.GridSpec(1, 3, figure=fig)
@@ -129,7 +125,11 @@ def main(data, config):
     c_mean = data.iloc[3, :] / data.iloc[2, :]
     data = data.transpose()
     data['c_mean'] = c_mean
-    data = data.sort_values(by='c_mean').transpose()
+
+    if sort:
+        data = data.sort_values(by='c_mean', ascending=asc).transpose()
+    else:
+        data = data.transpose()
 
     dist_plot(gs, fig, data.iloc[14])
     bar_dist_plot(gs, fig, data.iloc[8], color_map(config))
