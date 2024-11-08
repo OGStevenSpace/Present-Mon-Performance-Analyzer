@@ -41,4 +41,4 @@ if __name__ == '__main__':
 
     output_df = PMPA.main(file_paths, num_files, config)
     save_output(output_df, output_path)
-    PMPV.load_data(output_df, config)
+    PMPV.main(output_df, config, sort=True)
