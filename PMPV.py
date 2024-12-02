@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as grid_spec
+import Main
 
 
 def reshape(array):
@@ -39,6 +40,7 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
             y = list(data_list[k][dist].keys())
             axes[i_d].fill_between(y, x, 0)
             axes[i_d].fill_between(y, pad, 0, color='white', ec='0.8')
+            axes[i_d].title.set_text(dist)
 
     # Calculate ticks and common limits
     ticks_x = list(range(0, len(x) // y_tick, y_tick))
@@ -48,6 +50,8 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
     # Configure each axis
     configure_axis(axes[0], ticks_x, ticks_y, data_keys, top, step, show_y_axis=True)
     configure_axis(axes[1], ticks_x, ticks_y, data_keys, top, step, show_y_axis=False)
+    x_axis_config(axes[0], 0, 68, 4)
+    x_axis_config(axes[1], 0, 68, 4)
 
     fig.tight_layout(pad=-0.5)
     fig.subplots_adjust(left=0.1, right=0.99)
@@ -72,11 +76,8 @@ def color_map(config):
 
 def configure_axis(axis, ticks_x, ticks_y, data_keys, top, step, show_y_axis=True):
     """Configures the properties of a given axis."""
-    axis.get_xaxis().set_visible(True)
     axis.get_yaxis().set_visible(show_y_axis)
-    axis.set_xlim([0.0, 67])
     axis.set_ylim([0.0, top + 3 * step])
-    axis.set_xticks(ticks_x)
     axis.set_yticks(ticks=ticks_y, labels=reversed(data_keys) if show_y_axis else [])
     axis.tick_params(axis='both', which='major', labelsize=6)
 
@@ -104,23 +105,113 @@ def bar_dist_plot(grid_spec, figure, data, color):
         display_data = dist_df.query("fileName == @file_name and index == 'DisplayedTime'").iloc[0, 1:-1]
 
         y_position = i * 2
-        ax.hlines(y=y_position - 0.5, xmin=0, xmax=67, colors='0.8', lw=1)
+        ax.hlines(y=y_position - 0.5, xmin=0, xmax=72, colors='0.8', lw=1)
         plot_bar(ax, y_position, frame_data, color)
         plot_bar(ax, y_position + 1, display_data, color)
 
     ax.get_yaxis().set_visible(False)
     ax.set_ylim([-0.5, len(extended_keys) + 3.5])
-    ax.set_xlim([0, 67])
-    ax.tick_params(axis='both', which='major', labelsize=6)
+    x_axis_config(ax, 0, 72, 8)
+    ax.set_title('Percentiles')
+
+
+def bar_perf(grid_spec, figure, mean, lows, order):
+    """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
+    ax = figure.add_subplot(grid_spec)
+    # Filter for 'FrameTime' and 'DisplayedTime' in the mean DataFrame
+    mean_df = pd.concat([mean[key].transpose() for key in mean.keys()])
+    lows_df = pd.concat([lows[key].transpose() for key in lows.keys()])
+
+    ft_df = pd.concat(
+        [
+            lows_df.loc[lows_df.index.isin(['FrameTime'])],
+            mean_df.loc[mean_df.index.isin(['FrameTime'])].rename(columns={0: 1})
+        ],
+        axis=1
+    ).sort_index(axis=1, ascending=order).iloc[::-1]
+
+    dt_df = -pd.concat(
+        [
+            lows_df.loc[lows_df.index.isin(['DisplayedTime'])],
+            mean_df.loc[mean_df.index.isin(['DisplayedTime'])].rename(columns={0: 1})
+
+        ],
+        axis=1
+    ).sort_index(axis=1, ascending=order).iloc[::-1]
+
+    ft_colors = pd.DataFrame(
+        [
+            [0.75, 0.81, 1.00, 1.00],
+            [0.35, 0.51, 1.00, 1.00],
+            [0.00, 0.25, 1.00, 1.00]
+        ]
+    ).sort_index(axis=0, ascending=order)
+    dt_colors = pd.DataFrame(
+        [
+            [1.00, 0.82, 0.50, 1.00],
+            [1.00, 0.73, 0.25, 1.00],
+            [1.00, 0.65, 0.00, 1.00]
+        ]
+    ).sort_index(axis=0, ascending=order)
+
+    # Plot the bar chart for FrameTime
+    y_positions = range(len(ft_df))
+    for i, col in enumerate(ft_df):
+        ax.barh(y_positions, ft_df[col].values.flatten(), color=ft_colors.iloc[i, :])
+        ax.barh(y_positions, dt_df[col].values.flatten(), color=dt_colors.iloc[i, :])
+
+    ax.xaxis.set_visible(True)
+    ax.yaxis.set_visible(not order)
+    ax.set_yticks(y_positions)
+    ax.set_yticklabels(reversed(mean.keys()))
+    ax.tick_params(axis='y', which='major', labelsize=6)
+
+    return ax
+
+
+def util_bar(grid_spec, figure, mean):
+    """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
+    ax = figure.add_subplot(grid_spec)
+    # Filter for 'FrameTime' and 'DisplayedTime' in the mean DataFrame
+    mean_df = pd.concat([mean[key].transpose() for key in mean.keys()])
+
+    cpu_df = mean_df.loc[mean_df.index.isin(['CPUUtilization'])].iloc[::-1]
+
+    gpu_df = -mean_df.loc[mean_df.index.isin(['GPUUtilization'])].iloc[::-1]
+
+    # Plot the bar chart for FrameTime
+    y_positions = range(len(cpu_df))
+    for i, col in enumerate(cpu_df):
+        ax.barh(y_positions, cpu_df[col].values.flatten())
+        ax.barh(y_positions, gpu_df[col].values.flatten())
+
+    ax.xaxis.set_visible(True)
+    ax.yaxis.set_visible(False)
+    ax.set_yticks(y_positions)
+    ax.set_yticklabels(reversed(mean.keys()))
+    ax.tick_params(axis='y', which='major', labelsize=6)
+
+    return ax
+
+
+def x_axis_config(ax, bot, top, step):
+    ticks_x = np.arange(bot, top, step)
+    ax.get_xaxis().set_visible(True)
+    ax.set_xlim([bot, top])
+    ax.set_xticks(ticks_x)
+    ax.tick_params(axis='x', which='major', labelsize=6)
 
 
 def main(array, config, reshape_data=True, sort=False, asc=True):
     """Main function to handle configuration and generate plots."""
     data = reshape(array) if reshape_data else array
+    fig_dist = plt.figure(figsize=(10, 6))
+    fig_dist.canvas.manager.set_window_title('Distribution Summary')
+    gs_dist = grid_spec.GridSpec(1, 3, figure=fig_dist)
 
-    fig = plt.figure(figsize=(10, 6))
-    fig.canvas.manager.set_window_title('Test')
-    gs = grid_spec.GridSpec(1, 3, figure=fig)
+    fig_perf = plt.figure(figsize=(10, 6))
+    fig_perf.canvas.manager.set_window_title('Performance Summary')
+    gs_perf = grid_spec.GridSpec(1, 3, figure=fig_perf)
 
     c_mean = data.iloc[3, :] / data.iloc[2, :]
     data = data.transpose()
@@ -131,7 +222,17 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
     else:
         data = data.transpose()
 
-    dist_plot(gs, fig, data.iloc[14])
-    bar_dist_plot(gs, fig, data.iloc[8], color_map(config))
-
+    dist_plot(gs_dist, fig_dist, data.iloc[14])
+    bar_dist_plot(gs_dist, fig_dist, data.iloc[8], color_map(config))
+    fig_dist.tight_layout(pad=-0.5)
+    fps_chart = bar_perf(gs_perf[0, 0], fig_perf, 1000/data.iloc[4], 1000/data.iloc[7], False)
+    fps_chart.set_title('FPS')
+    x_axis_config(fps_chart, -270, 271, 30)
+    ms_chart = bar_perf(gs_perf[0, 1], fig_perf, data.iloc[4], data.iloc[7], True)
+    ms_chart.set_title('DisplayedTimes | FrameTimes')
+    x_axis_config(ms_chart, -72, 73, 8)
+    util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4])
+    util_plot.set_title('Util Average')
+    x_axis_config(util_plot, -100, 101, 20)
+    fig_perf.tight_layout(pad=-1)
     plt.show()

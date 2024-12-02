@@ -24,14 +24,16 @@ def open_files():
 def create_output_path():
     """Generate an output file path in the user's Documents directory."""
     timestamp = datetime.datetime.now().strftime('%d-%m-%y_T%H%M%S')
-    return os.path.join(os.path.expanduser('~'), 'Documents', f"Output_{timestamp}.csv")
+    return os.path.join(os.path.expanduser('~'), 'Documents', f"Output_{timestamp}.json")
 
 
 def save_output(output_df, path):
     """Save output DataFrame to specified CSV path."""
     file_exists = os.path.isfile(path)
-    output_df.to_csv(path, mode='a', index=False, header=not file_exists)
+    # output_df.to_csv(path, mode='a', index=False, header=not file_exists)
+    output_df.to_json(path)
     print(f"\nProcessing complete. Output file created at: {path}")
+
 
 if __name__ == '__main__':
 

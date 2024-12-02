@@ -68,11 +68,13 @@ def parallel_build_trees(log, num_trees=10, size_factor=0.001):
 if __name__ == '__main__':
     # Load data
     log = pd.read_csv('SampleDataLog.csv')
-    log['AnimationError'] = abs(log['FrameTime'].sub(log['FrameTime'].iloc[1:].reset_index(drop=True)))
+    log['AnimationError'] = abs(log['FrameTime'] - log['FrameTime'].shift(-1)).fillna(0)
+    print("AnimationError Done")
     output = log.assign(lod=0)
-
+    print("OutputCreation Done")
     # Build trees and calculate the lod values
     lod_values = parallel_build_trees(log)
+    print("Forest Done")
     output['lod'] = lod_values  # < 0.4  # Assign final lod values based on threshold
-
+    print("OutputAssigned Done")
     output.to_csv('forestOutput.csv', mode='a', index=False)
