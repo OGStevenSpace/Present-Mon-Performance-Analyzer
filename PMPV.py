@@ -2,9 +2,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as grid_spec
+import json
 import Main
 
-
+def load_config():
+    """Load configuration from the JSON file."""
+    with open('config.json', "r") as file:
+        return json.load(file)
 def reshape(array):
     """Reshape the array by flattening nested dictionaries and setting up a new DataFrame structure."""
     reshaped_data = []
@@ -52,9 +56,6 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
     configure_axis(axes[1], ticks_x, ticks_y, data_keys, top, step, show_y_axis=False)
     x_axis_config(axes[0], 0, 68, 4)
     x_axis_config(axes[1], 0, 68, 4)
-
-    fig.tight_layout(pad=-0.5)
-    fig.subplots_adjust(left=0.1, right=0.99)
 
 
 def color_map(config):
@@ -205,12 +206,11 @@ def x_axis_config(ax, bot, top, step):
 def main(array, config, reshape_data=True, sort=False, asc=True):
     """Main function to handle configuration and generate plots."""
     data = reshape(array) if reshape_data else array
+
     fig_dist = plt.figure(figsize=(10, 6))
-    fig_dist.canvas.manager.set_window_title('Distribution Summary')
     gs_dist = grid_spec.GridSpec(1, 3, figure=fig_dist)
 
     fig_perf = plt.figure(figsize=(10, 6))
-    fig_perf.canvas.manager.set_window_title('Performance Summary')
     gs_perf = grid_spec.GridSpec(1, 3, figure=fig_perf)
 
     c_mean = data.iloc[3, :] / data.iloc[2, :]
@@ -234,5 +234,11 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
     util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4])
     util_plot.set_title('Util Average')
     x_axis_config(util_plot, -100, 101, 20)
-    fig_perf.tight_layout(pad=-1)
+
+    fig_dist.subplots_adjust(left=0.1, right=0.99, top=0.95, bottom=0.05)
+    fig_dist.canvas.manager.set_window_title('Distribution Summary')
+    fig_dist.tight_layout(pad=-0.5)
+    fig_perf.subplots_adjust(left=0.1, right=0.99, top=0.95, bottom=0.05)
+    fig_perf.canvas.manager.set_window_title('Performance Summary')
+    fig_perf.tight_layout(pad=-0.5)
     plt.show()
