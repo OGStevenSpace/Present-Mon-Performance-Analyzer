@@ -35,12 +35,16 @@ def save_output(output_df, path):
     print(f"\nProcessing complete. Output file created at: {path}")
 
 
-if __name__ == '__main__':
-
+def main(out_flag=True):
     config = load_config()
     output_path = create_output_path()
     file_paths, num_files = open_files()
 
     output_df = PMPA.main(file_paths, num_files, config)
-    save_output(output_df, output_path)
+    if out_flag:
+        save_output(output_df, output_path)
     PMPV.main(output_df, config, sort=True)
+
+
+if __name__ == '__main__':
+    main()

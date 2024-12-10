@@ -5,10 +5,13 @@ import matplotlib.gridspec as grid_spec
 import json
 import Main
 
+
 def load_config():
     """Load configuration from the JSON file."""
     with open('config.json', "r") as file:
         return json.load(file)
+
+
 def reshape(array):
     """Reshape the array by flattening nested dictionaries and setting up a new DataFrame structure."""
     reshaped_data = []
@@ -91,9 +94,9 @@ def plot_bar(ax, y_position, data, color, offset=0.4):
     ax.vlines(data[:5].sum(), y_position - offset + 0.15, y_position + offset - 0.15, colors='red')
 
 
-def bar_dist_plot(grid_spec, figure, data, color):
+def bar_dist_plot(gs, fig, data, color):
     """Generates a horizontal bar distribution plot for FrameTime and DisplayedTime."""
-    ax = figure.add_subplot(grid_spec[0, 2])
+    ax = fig.add_subplot(gs[0, 2])
     dist_df = pd.concat([data[key].transpose() for key in data.keys()])
     key_list = list(data.keys())
     extended_keys = [key for key in key_list for _ in range(2)]
@@ -116,9 +119,9 @@ def bar_dist_plot(grid_spec, figure, data, color):
     ax.set_title('Percentiles')
 
 
-def bar_perf(grid_spec, figure, mean, lows, order):
+def bar_perf(gs, fig, mean, lows, order):
     """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
-    ax = figure.add_subplot(grid_spec)
+    ax = fig.add_subplot(gs)
     # Filter for 'FrameTime' and 'DisplayedTime' in the mean DataFrame
     mean_df = pd.concat([mean[key].transpose() for key in mean.keys()])
     lows_df = pd.concat([lows[key].transpose() for key in lows.keys()])
@@ -170,9 +173,22 @@ def bar_perf(grid_spec, figure, mean, lows, order):
     return ax
 
 
-def util_bar(grid_spec, figure, mean):
+def var_bar(gs, fig, var):
+
+    rows = len(var.keys())
+    cols = 2
+    top = rows * 0.05 - 0.05
+    axes = [fig.add_subplot(gs[0, j]) for j in range(cols)]
+
+    for i, v in enumerate(var):
+        for j, col in enumerate(v):
+            axes[j].barh(i, v[col].values.flatten(), label=v)
+            print(np.cumsum(v[col].values.flatten()))
+
+
+def util_bar(gs, figure, mean):
     """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
-    ax = figure.add_subplot(grid_spec)
+    ax = figure.add_subplot(gs)
     # Filter for 'FrameTime' and 'DisplayedTime' in the mean DataFrame
     mean_df = pd.concat([mean[key].transpose() for key in mean.keys()])
 
@@ -213,6 +229,9 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
     fig_perf = plt.figure(figsize=(10, 6))
     gs_perf = grid_spec.GridSpec(1, 3, figure=fig_perf)
 
+    fig_var = plt.figure(figsize=(10, 6))
+    gs_var = grid_spec.GridSpec(1, 3, figure=fig_var)
+
     c_mean = data.iloc[3, :] / data.iloc[2, :]
     data = data.transpose()
     data['c_mean'] = c_mean
@@ -225,20 +244,31 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
     dist_plot(gs_dist, fig_dist, data.iloc[14])
     bar_dist_plot(gs_dist, fig_dist, data.iloc[8], color_map(config))
     fig_dist.tight_layout(pad=-0.5)
+
     fps_chart = bar_perf(gs_perf[0, 0], fig_perf, 1000/data.iloc[4], 1000/data.iloc[7], False)
     fps_chart.set_title('FPS')
     x_axis_config(fps_chart, -270, 271, 30)
+
     ms_chart = bar_perf(gs_perf[0, 1], fig_perf, data.iloc[4], data.iloc[7], True)
     ms_chart.set_title('DisplayedTimes | FrameTimes')
     x_axis_config(ms_chart, -72, 73, 8)
+
     util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4])
     util_plot.set_title('Util Average')
     x_axis_config(util_plot, -100, 101, 20)
 
-    fig_dist.subplots_adjust(left=0.1, right=0.99, top=0.95, bottom=0.05)
+    var_bar(gs_var, fig_var, data.iloc[13])
+
+    fig_dist.subplots_adjust(left=0.5, right=0.95, top=0.90, bottom=0.10)
     fig_dist.canvas.manager.set_window_title('Distribution Summary')
     fig_dist.tight_layout(pad=-0.5)
-    fig_perf.subplots_adjust(left=0.1, right=0.99, top=0.95, bottom=0.05)
+
+    fig_perf.subplots_adjust(left=0.5, right=0.95, top=0.90, bottom=0.10)
     fig_perf.canvas.manager.set_window_title('Performance Summary')
     fig_perf.tight_layout(pad=-0.5)
+
     plt.show()
+
+
+if __name__ == '__main__':
+    Main.main(False)
