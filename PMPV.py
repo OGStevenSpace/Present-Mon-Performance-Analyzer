@@ -61,12 +61,17 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
     x_axis_config(axes[1], 0, 68, 4)
 
 
-def color_map(config):
+def color_map(colors_list, qtl_size, ws=True, stack=True):
     """Generate color map based on frame quantiles colors from config."""
-    colors = [[255, 255, 255, 1]] + config["frame_quantiles_colors"]
+    if ws:
+        colors = [[255, 255, 255, 1]] + colors_list
+    else:
+        colors = colors_list
     color_df = pd.DataFrame(colors, columns=['R', 'G', 'B', 'A']).div([255, 255, 255, 1])
-    qtl_size = len(config["frame_quantiles"])
-    color_range = np.linspace(0, len(colors) - 1, qtl_size // 2 + 1)
+    if stack:
+        color_range = np.linspace(0, len(colors) - 1, qtl_size // 2 + 1)
+    else:
+        color_range = np.linspace(0, len(colors) - 1, qtl_size + 1)
 
     result = []
     for val in color_range:
@@ -75,7 +80,10 @@ def color_map(config):
         blended_color = color_df.iloc[int(lower_idx)] * (1 - frac) + color_df.iloc[int(upper_idx)] * frac
         result.append(blended_color)
 
-    return result + list(reversed(result))[1:] if qtl_size % 2 == 0 else result + list(reversed(result))
+    if stack:
+        result += list(reversed(result))[1:] if qtl_size % 2 == 0 else list(reversed(result))
+
+    return result
 
 
 def configure_axis(axis, ticks_x, ticks_y, data_keys, top, step, show_y_axis=True):
@@ -173,17 +181,21 @@ def bar_perf(gs, fig, mean, lows, order):
     return ax
 
 
-def var_bar(gs, fig, var):
+def var_bar(gs, fig, var, color):
 
     rows = len(var.keys())
     cols = 2
     top = rows * 0.05 - 0.05
     axes = [fig.add_subplot(gs[0, j]) for j in range(cols)]
 
-    for i, v in enumerate(var):
+    for i, v in enumerate(reversed(var)):
         for j, col in enumerate(v):
-            axes[j].barh(i, v[col].values.flatten(), label=v)
-            print(np.cumsum(v[col].values.flatten()))
+            bars = np.cumsum(v[col].values.flatten())
+            for c, bar in enumerate(reversed(bars)):
+                axes[j].barh(i, bar, color=color[c])
+                axes[j].title.set_text(col)
+
+
 
 
 def util_bar(gs, figure, mean):
@@ -242,7 +254,15 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
         data = data.transpose()
 
     dist_plot(gs_dist, fig_dist, data.iloc[14])
-    bar_dist_plot(gs_dist, fig_dist, data.iloc[8], color_map(config))
+    bar_dist_plot(
+        gs_dist,
+        fig_dist,
+        data.iloc[8],
+        color_map(
+            config["frame_quantiles_colors"],
+            len(config["frame_quantiles"])
+        )
+    )
     fig_dist.tight_layout(pad=-0.5)
 
     fps_chart = bar_perf(gs_perf[0, 0], fig_perf, 1000/data.iloc[4], 1000/data.iloc[7], False)
@@ -257,7 +277,16 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
     util_plot.set_title('Util Average')
     x_axis_config(util_plot, -100, 101, 20)
 
-    var_bar(gs_var, fig_var, data.iloc[13])
+    var_bar(gs_var,
+            fig_var,
+            data.iloc[13],
+            color_map(
+                config["frame_delta_colors"],
+                config["delta_bins"]["bins"],
+                False,
+                False
+            )
+    )
 
     fig_dist.subplots_adjust(left=0.5, right=0.95, top=0.90, bottom=0.10)
     fig_dist.canvas.manager.set_window_title('Distribution Summary')
