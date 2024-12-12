@@ -46,7 +46,7 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
             x = [sum(x) for x in zip(x, pad)]
             y = list(data_list[k][dist].keys())
             axes[i_d].fill_between(y, x, 0)
-            axes[i_d].fill_between(y, pad, 0, color='white', ec='0.8')
+            axes[i_d].fill_between(y, pad, 0, color='white', ec='0.8', lw=0.2)
             axes[i_d].title.set_text(dist)
 
     # Calculate ticks and common limits
@@ -54,11 +54,14 @@ def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
     ticks_y = [step * n for n in range(rows)]
     data_keys = list(data_list.keys())
 
+    for ax in axes:
+        ax.vlines([-33.333, 33.333], ymin=-0.5, ymax=rows - 0.5, colors='red', linewidth=0.5)
+        ax.vlines([-16.666, 16.666], ymin=-0.5, ymax=rows - 0.5, colors='green', linewidth=0.5)
     # Configure each axis
-    configure_axis(axes[0], ticks_x, ticks_y, data_keys, top, step, show_y_axis=True)
-    configure_axis(axes[1], ticks_x, ticks_y, data_keys, top, step, show_y_axis=False)
-    x_axis_config(axes[0], 0, 68, 4)
-    x_axis_config(axes[1], 0, 68, 4)
+    y_axis_config(axes[0], ticks_y, data_keys, top, step, show_y_axis=True)
+    y_axis_config(axes[1], ticks_y, data_keys, top, step, show_y_axis=False)
+    x_axis_config(axes[0], 0, 67, 4)
+    x_axis_config(axes[1], 0, 67, 4)
 
 
 def color_map(colors_list, qtl_size, ws=True, stack=True):
@@ -86,7 +89,7 @@ def color_map(colors_list, qtl_size, ws=True, stack=True):
     return result
 
 
-def configure_axis(axis, ticks_x, ticks_y, data_keys, top, step, show_y_axis=True):
+def y_axis_config(axis, ticks_y, data_keys, top, step, show_y_axis=True):
     """Configures the properties of a given axis."""
     axis.get_yaxis().set_visible(show_y_axis)
     axis.set_ylim([0.0, top + 3 * step])
@@ -122,6 +125,8 @@ def bar_dist_plot(gs, fig, data, color):
         plot_bar(ax, y_position + 1, display_data, color)
 
     ax.get_yaxis().set_visible(False)
+    ax.vlines([-33.333, 33.333], ymin=-0.5, ymax=len(key_list) * 2 - 0.5, colors='red', linewidth=0.5)
+    ax.vlines([-16.666, 16.666], ymin=-0.5, ymax=len(key_list) * 2 - 0.5, colors='green', linewidth=0.5)
     ax.set_ylim([-0.5, len(extended_keys) + 3.5])
     x_axis_config(ax, 0, 72, 8)
     ax.set_title('Percentiles')
@@ -185,18 +190,22 @@ def var_bar(gs, fig, var, color):
 
     rows = len(var.keys())
     cols = 2
-    top = rows * 0.05 - 0.05
     axes = [fig.add_subplot(gs[0, j]) for j in range(cols)]
 
     for i, v in enumerate(reversed(var)):
         for j, col in enumerate(v):
             bars = np.cumsum(v[col].values.flatten())
+            axes[j].title.set_text(col)
             for c, bar in enumerate(reversed(bars)):
                 axes[j].barh(i, bar, color=color[c])
-                axes[j].title.set_text(col)
 
-
-
+    axes[0].set_yticks(range(rows))
+    axes[0].set_yticklabels(reversed(list(var.keys())))
+    axes[0].tick_params(axis='both', which='major', labelsize=6)
+    for ax in axes[1:]:
+        ax.get_yaxis().set_visible(False)
+        ax.tick_params(axis='both', which='major', labelsize=6)
+    return axes
 
 def util_bar(gs, figure, mean):
     """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
@@ -234,7 +243,6 @@ def x_axis_config(ax, bot, top, step):
 def main(array, config, reshape_data=True, sort=False, asc=True):
     """Main function to handle configuration and generate plots."""
     data = reshape(array) if reshape_data else array
-
     fig_dist = plt.figure(figsize=(10, 6))
     gs_dist = grid_spec.GridSpec(1, 3, figure=fig_dist)
 
@@ -263,19 +271,22 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
             len(config["frame_quantiles"])
         )
     )
-    fig_dist.tight_layout(pad=-0.5)
 
     fps_chart = bar_perf(gs_perf[0, 0], fig_perf, 1000/data.iloc[4], 1000/data.iloc[7], False)
     fps_chart.set_title('FPS')
-    x_axis_config(fps_chart, -270, 271, 30)
+    fps_chart.vlines([-30, 30], ymin=-0.5, ymax=len(data.keys()) - 0.5, colors='red', linewidth=0.5)
+    fps_chart.vlines([-60, 60], ymin=-0.5, ymax=len(data.keys()) - 0.5, colors='green', linewidth=0.5)
+    x_axis_config(fps_chart, -120, 120, 30)
 
     ms_chart = bar_perf(gs_perf[0, 1], fig_perf, data.iloc[4], data.iloc[7], True)
     ms_chart.set_title('DisplayedTimes | FrameTimes')
-    x_axis_config(ms_chart, -72, 73, 8)
+    ms_chart.vlines([-33.333, 33.333], ymin=-0.5, ymax=len(data.keys())-0.5, colors='red', linewidth=0.5)
+    ms_chart.vlines([-16.666, 16.666], ymin=-0.5, ymax=len(data.keys())-0.5, colors='green', linewidth=0.5)
+    x_axis_config(ms_chart, -72, 72, 8)
 
     util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4])
     util_plot.set_title('Util Average')
-    x_axis_config(util_plot, -100, 101, 20)
+    x_axis_config(util_plot, -100, 100, 20)
 
     var_bar(gs_var,
             fig_var,
@@ -288,13 +299,17 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
             )
     )
 
-    fig_dist.subplots_adjust(left=0.5, right=0.95, top=0.90, bottom=0.10)
+    fig_dist.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_dist.canvas.manager.set_window_title('Distribution Summary')
-    fig_dist.tight_layout(pad=-0.5)
+    #fig_dist.tight_layout(pad=0)
 
-    fig_perf.subplots_adjust(left=0.5, right=0.95, top=0.90, bottom=0.10)
+    fig_perf.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_perf.canvas.manager.set_window_title('Performance Summary')
-    fig_perf.tight_layout(pad=-0.5)
+    #fig_perf.tight_layout(pad=0)
+
+    fig_var.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
+    fig_var.canvas.manager.set_window_title('Stability')
+    #fig_var.tight_layout(pad=0)
 
     plt.show()
 
