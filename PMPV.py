@@ -155,7 +155,6 @@ def bar_perf(gs, fig, mean, lows, order):
         ],
         axis=1
     ).sort_index(axis=1, ascending=order).iloc[::-1]
-
     ft_colors = pd.DataFrame(
         [
             [0.75, 0.81, 1.00, 1.00],
@@ -207,25 +206,30 @@ def var_bar(gs, fig, var, color):
         ax.tick_params(axis='both', which='major', labelsize=6)
     return axes
 
-def util_bar(gs, figure, mean):
+
+def util_bar(gs, figure, mean, wait):
     """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
     ax = figure.add_subplot(gs)
     # Filter for 'FrameTime' and 'DisplayedTime' in the mean DataFrame
     mean_df = pd.concat([mean[key].transpose() for key in mean.keys()])
-
+    wait_df = pd.concat([wait[key].transpose() for key in wait.keys()])
     cpu_df = mean_df.loc[mean_df.index.isin(['CPUUtilization'])].iloc[::-1]
-
     gpu_df = -mean_df.loc[mean_df.index.isin(['GPUUtilization'])].iloc[::-1]
+    cpu_wait = wait_df.loc[wait_df.index.isin(['CPUWait'])].iloc[::-1]
+    gpu_wait = -wait_df.loc[wait_df.index.isin(['GPUWait'])].iloc[::-1]
 
     # Plot the bar chart for FrameTime
-    y_positions = range(len(cpu_df))
+    y_pos = range(len(cpu_df))
+    y_pos_add = [i - 0.25 for i in y_pos]
     for i, col in enumerate(cpu_df):
-        ax.barh(y_positions, cpu_df[col].values.flatten())
-        ax.barh(y_positions, gpu_df[col].values.flatten())
+        ax.barh(y_pos, cpu_df[col].values.flatten())
+        ax.barh(y_pos, gpu_df[col].values.flatten())
+        ax.barh(y_pos, cpu_wait[col].values.flatten(), height=0.4)
+        ax.barh(y_pos, gpu_wait[col].values.flatten(), height=0.4)
 
     ax.xaxis.set_visible(True)
     ax.yaxis.set_visible(False)
-    ax.set_yticks(y_positions)
+    ax.set_yticks(y_pos)
     ax.set_yticklabels(reversed(mean.keys()))
     ax.tick_params(axis='y', which='major', labelsize=6)
 
@@ -250,7 +254,7 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
     gs_perf = grid_spec.GridSpec(1, 3, figure=fig_perf)
 
     fig_var = plt.figure(figsize=(10, 6))
-    gs_var = grid_spec.GridSpec(1, 3, figure=fig_var)
+    gs_var = grid_spec.GridSpec(1, 2, figure=fig_var)
 
     c_mean = data.iloc[3, :] / data.iloc[2, :]
     data = data.transpose()
@@ -274,18 +278,19 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
 
     fps_chart = bar_perf(gs_perf[0, 0], fig_perf, 1000/data.iloc[4], 1000/data.iloc[7], False)
     fps_chart.set_title('FPS')
-    fps_chart.vlines([-30, 30], ymin=-0.5, ymax=len(data.keys()) - 0.5, colors='red', linewidth=0.5)
-    fps_chart.vlines([-60, 60], ymin=-0.5, ymax=len(data.keys()) - 0.5, colors='green', linewidth=0.5)
+    fps_chart.vlines([-30, 30], ymin=-0.4, ymax=len(data.keys()) - 0.6, colors='red', linewidth=0.5)
+    fps_chart.vlines([-60, 60], ymin=-0.4, ymax=len(data.keys()) - 0.6, colors='green', linewidth=0.5)
     x_axis_config(fps_chart, -120, 120, 30)
 
     ms_chart = bar_perf(gs_perf[0, 1], fig_perf, data.iloc[4], data.iloc[7], True)
     ms_chart.set_title('DisplayedTimes | FrameTimes')
-    ms_chart.vlines([-33.333, 33.333], ymin=-0.5, ymax=len(data.keys())-0.5, colors='red', linewidth=0.5)
-    ms_chart.vlines([-16.666, 16.666], ymin=-0.5, ymax=len(data.keys())-0.5, colors='green', linewidth=0.5)
+    ms_chart.vlines([-33.333, 33.333], ymin=-0.4, ymax=len(data.keys())-0.6, colors='red', linewidth=0.5)
+    ms_chart.vlines([-16.666, 16.666], ymin=-0.4, ymax=len(data.keys())-0.6, colors='green', linewidth=0.5)
+    #ms_chart.legend(['avg', 'low 0.5', 'low 0.1'], ncol=3, loc='lower center', bbox_to_anchor=(0, -0.12))
     x_axis_config(ms_chart, -72, 72, 8)
 
-    util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4])
-    util_plot.set_title('Util Average')
+    util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4], data.iloc[5]/data.iloc[3]*100)
+    util_plot.set_title('Util Average & Wait Time %')
     x_axis_config(util_plot, -100, 100, 20)
 
     var_bar(gs_var,
@@ -301,15 +306,12 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
 
     fig_dist.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_dist.canvas.manager.set_window_title('Distribution Summary')
-    #fig_dist.tight_layout(pad=0)
 
     fig_perf.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_perf.canvas.manager.set_window_title('Performance Summary')
-    #fig_perf.tight_layout(pad=0)
 
     fig_var.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_var.canvas.manager.set_window_title('Stability')
-    #fig_var.tight_layout(pad=0)
 
     plt.show()
 
