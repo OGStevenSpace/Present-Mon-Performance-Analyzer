@@ -2,8 +2,35 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as grid_spec
+import matplotlib.patches as patch
+from matplotlib.collections import PatchCollection
 import json
 import Main
+
+
+# define an object that will be used by the legend
+class MulticolorPatch(object):
+    def __init__(self, colors):
+        self.colors = colors
+
+
+# define a handler for the MulticolorPatch object
+class MulticolorPatchHandler(object):
+    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
+        width, height = handlebox.width, handlebox.height
+        patches = []
+        for i, c in enumerate(orig_handle.colors):
+            patches.append(plt.Rectangle([width / len(orig_handle.colors) * i - handlebox.xdescent,
+                                          -handlebox.ydescent],
+                                         width / len(orig_handle.colors),
+                                         height,
+                                         facecolor=c,
+                                         edgecolor='none'))
+
+        patch = PatchCollection(patches, match_original=True)
+
+        handlebox.add_artist(patch)
+        return patch
 
 
 def load_config():
@@ -130,6 +157,8 @@ def bar_dist_plot(gs, fig, data, color):
     ax.set_ylim([-0.5, len(extended_keys) + 3.5])
     x_axis_config(ax, 0, 72, 8)
     ax.set_title('Percentiles')
+
+    return ax
 
 
 def bar_perf(gs, fig, mean, lows, order):
@@ -266,7 +295,7 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
         data = data.transpose()
 
     dist_plot(gs_dist, fig_dist, data.iloc[14])
-    bar_dist_plot(
+    perc_chart = bar_dist_plot(
         gs_dist,
         fig_dist,
         data.iloc[8],
@@ -275,6 +304,9 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
             len(config["frame_quantiles"])
         )
     )
+
+    perc_chart.legend()
+
 
     fps_chart = bar_perf(gs_perf[0, 0], fig_perf, 1000/data.iloc[4], 1000/data.iloc[7], False)
     fps_chart.set_title('FPS')
@@ -286,12 +318,51 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
     ms_chart.set_title('DisplayedTimes | FrameTimes')
     ms_chart.vlines([-33.333, 33.333], ymin=-0.4, ymax=len(data.keys())-0.6, colors='red', linewidth=0.5)
     ms_chart.vlines([-16.666, 16.666], ymin=-0.4, ymax=len(data.keys())-0.6, colors='green', linewidth=0.5)
-    #ms_chart.legend(['avg', 'low 0.5', 'low 0.1'], ncol=3, loc='lower center', bbox_to_anchor=(0, -0.12))
+
+    pa1 = patch.Patch(facecolor=(0.00, 0.25, 1.00, 1.00))
+    pa2 = patch.Patch(facecolor=(1.00, 0.65, 0.00, 1.00))
+    #
+    pb1 = patch.Patch(facecolor=(0.35, 0.51, 1.00, 1.00))
+    pb2 = patch.Patch(facecolor=(1.00, 0.73, 0.25, 1.00))
+    #
+    pc1 = patch.Patch(facecolor=(0.75, 0.81, 1.00, 1.00))
+    pc2 = patch.Patch(facecolor=(1.00, 0.82, 0.50, 1.00))
+
+    ms_chart.legend(
+        handles=[pa1, pa2, pb1, pb2, pc1, pc2],
+        labels=['', 'Avg    ', '', 'Low 5%    ', '', 'Low 1%'],
+        ncol=6,
+        handletextpad=0.5,
+        handlelength=1.0,
+        columnspacing=-0.5,
+        fontsize=7,
+        loc='lower center',
+        bbox_to_anchor=(0, -0.12)
+    )
+
     x_axis_config(ms_chart, -72, 72, 8)
 
     util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4], data.iloc[5]/data.iloc[3]*100)
     util_plot.set_title('Util Average & Wait Time %')
     x_axis_config(util_plot, -100, 100, 20)
+
+    pa1 = patch.Patch(facecolor='blue')
+    pa2 = patch.Patch(facecolor='orange')
+    #
+    pb1 = patch.Patch(facecolor='green')
+    pb2 = patch.Patch(facecolor='red')
+
+    util_plot.legend(
+        handles=[pa1, pa2, pb1, pb2],
+        labels=['CPU%    ', 'GPU%    ', 'CPU Wait%    ', 'GPU Wait%'],
+        ncol=4,
+        handletextpad=0.5,
+        handlelength=1.0,
+        columnspacing=-0.5,
+        fontsize=7,
+        loc='lower center',
+        bbox_to_anchor=(0.5, -0.12)
+    )
 
     var_bar(gs_var,
             fig_var,
@@ -300,17 +371,16 @@ def main(array, config, reshape_data=True, sort=False, asc=True):
                 config["frame_delta_colors"],
                 config["delta_bins"]["bins"],
                 False,
-                False
+                False)
             )
-    )
 
-    fig_dist.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
+    fig_dist.subplots_adjust(left=0.2, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_dist.canvas.manager.set_window_title('Distribution Summary')
 
-    fig_perf.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
+    fig_perf.subplots_adjust(left=0.2, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_perf.canvas.manager.set_window_title('Performance Summary')
 
-    fig_var.subplots_adjust(left=0.1, right=0.99, top=0.90, bottom=0.10, wspace=0)
+    fig_var.subplots_adjust(left=0.2, right=0.99, top=0.90, bottom=0.10, wspace=0)
     fig_var.canvas.manager.set_window_title('Stability')
 
     plt.show()
