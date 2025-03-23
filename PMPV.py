@@ -203,7 +203,7 @@ def barh(fig, icol, i_bar, data, cmap,
 
     def util_barh():
         fig.set_axis_x(icol=icol, ticks=np.linspace(-100, 100, 21, dtype=int), label_size=label_size)
-        fig.axis[icol].text(0.005, 0.005, "%", fontsize=label_size, transform=fig.axis[icol].transAxes)
+        fig.axis[icol].text(1.005, -0.01, "%", fontsize=label_size, transform=fig.axis[icol].transAxes)
         fig.set_vlines(icol, ('black', [0], '-'))
         fig.set_axis_title(icol=icol, title="Average GPU and CPU usage")
         for i, (cat_name, cat_data) in enumerate(categories.items()):

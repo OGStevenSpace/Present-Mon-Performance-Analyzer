@@ -6,8 +6,6 @@ import json
 import tkinter as tk
 from tkinter import filedialog
 
-import PMPV2
-
 
 def load_config():
     """Load configuration from the JSON file."""
@@ -30,9 +28,6 @@ def create_output_path():
 
 
 def save_output(output_df, path):
-    """Save output DataFrame to specified CSV path."""
-    file_exists = os.path.isfile(path)
-    # output_df.to_csv(path, mode='a', index=False, header=not file_exists)
     output_df.to_json(path)
     print(f"\nProcessing complete. Output file created at: {path}")
 
@@ -45,7 +40,7 @@ def main(out_flag=True):
     output_df = PMPA.main(file_paths, num_files, config)
     if out_flag:
         save_output(output_df, output_path)
-    PMPV2.main(output_df)
+    PMPV.main(output_df)
 
 
 if __name__ == '__main__':
