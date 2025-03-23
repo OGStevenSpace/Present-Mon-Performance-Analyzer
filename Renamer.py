@@ -40,20 +40,33 @@ def rename_files(folder_path):
         os.rename(old_file_path, new_file_path)
 
 
+def rename_new(folder_path):
+    filenames = [f for f in os.listdir(folder_path) if
+                 os.path.isfile(os.path.join(folder_path, f))]
+
+    for index, filename in enumerate(filenames, start=1):
+        new_name = f"{filename.split('_')[0]}.csv"
+        old_file_path = os.path.join(folder_path, filename)
+        new_file_path = os.path.join(folder_path, new_name)
+        os.rename(old_file_path, new_file_path)
+
+
 def main():
     # Step 1: Select folder
     folder_path = select_folder()
     if not folder_path:
         print("No folder selected. Exiting...")
         return
-
-    # Step 2: Save filenames to CSV
+    '''
+     # Step 2: Save filenames to CSV
     save_filenames_to_csv(folder_path)
     print(f"Filenames saved to {folder_path}/file_names.csv")
 
     # Step 3: Rename files
     rename_files(folder_path)
     print("Files renamed successfully.")
+    '''
+    rename_new(folder_path)
 
 
 if __name__ == "__main__":

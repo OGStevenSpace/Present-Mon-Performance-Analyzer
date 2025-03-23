@@ -1,390 +1,320 @@
 import pandas as pd
 import numpy as np
+from numpy import pi
+from numpy import sin
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as grid_spec
 import matplotlib.patches as patch
-from matplotlib.collections import PatchCollection
+from matplotlib.colors import LinearSegmentedColormap
 import json
-import Main
 
 
-# define an object that will be used by the legend
-class MulticolorPatch(object):
-    def __init__(self, colors):
-        self.colors = colors
-
-
-# define a handler for the MulticolorPatch object
-class MulticolorPatchHandler(object):
-    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
-        width, height = handlebox.width, handlebox.height
-        patches = []
-        for i, c in enumerate(orig_handle.colors):
-            patches.append(plt.Rectangle([width / len(orig_handle.colors) * i - handlebox.xdescent,
-                                          -handlebox.ydescent],
-                                         width / len(orig_handle.colors),
-                                         height,
-                                         facecolor=c,
-                                         edgecolor='none'))
-
-        patch = PatchCollection(patches, match_original=True)
-
-        handlebox.add_artist(patch)
-        return patch
-
-
-def load_config():
-    """Load configuration from the JSON file."""
-    with open('config.json', "r") as file:
-        return json.load(file)
-
-
-def reshape(array):
-    """Reshape the array by flattening nested dictionaries and setting up a new DataFrame structure."""
-    reshaped_data = []
-
-    for col in array:
-        reshaped_column = [parse_dict(row) if isinstance(row, dict) else row for row in array[col]]
-        reshaped_data.append(reshaped_column)
-
-    reshaped_df = pd.DataFrame(reshaped_data).rename(columns=lambda x: reshaped_data[0][x]).drop(0).reset_index(
-        drop=True)
-    return reshaped_df
-
-
-def parse_dict(dictionary):
-    """Parse a dictionary into a DataFrame row."""
-    return pd.DataFrame(dictionary.values(), index=dictionary.keys()).transpose()
-
-
-def dist_plot(gs, fig, data_list, step=0.05, y_tick=2):
-    rows = len(data_list.keys())
-    cols = 2
-    top = rows * 0.05 - 0.05
-    axes = [fig.add_subplot(gs[0, j]) for j in range(cols)]
-
-    x, y = [], []
-
-    for i_k, k in enumerate(data_list.keys()):
-        for i_d, dist in enumerate(data_list[k]):
-
-            x = list(data_list[k][dist])
-            pad = [top - 0.05 * i_k] * len(x)
-            x = [sum(x) for x in zip(x, pad)]
-            y = list(data_list[k][dist].keys())
-            axes[i_d].fill_between(y, x, 0)
-            axes[i_d].fill_between(y, pad, 0, color='white', ec='0.8', lw=0.2)
-            axes[i_d].title.set_text(dist)
-
-    # Calculate ticks and common limits
-    ticks_x = list(range(0, len(x) // y_tick, y_tick))
-    ticks_y = [step * n for n in range(rows)]
-    data_keys = list(data_list.keys())
-
-    for ax in axes:
-        ax.vlines([-33.333, 33.333], ymin=-0.5, ymax=rows - 0.5, colors='red', linewidth=0.5)
-        ax.vlines([-16.666, 16.666], ymin=-0.5, ymax=rows - 0.5, colors='green', linewidth=0.5)
-    # Configure each axis
-    y_axis_config(axes[0], ticks_y, data_keys, top, step, show_y_axis=True)
-    y_axis_config(axes[1], ticks_y, data_keys, top, step, show_y_axis=False)
-    x_axis_config(axes[0], 0, 67, 4)
-    x_axis_config(axes[1], 0, 67, 4)
-
-
-def color_map(colors_list, qtl_size, ws=True, stack=True):
-    """Generate color map based on frame quantiles colors from config."""
-    if ws:
-        colors = [[255, 255, 255, 1]] + colors_list
-    else:
-        colors = colors_list
-    color_df = pd.DataFrame(colors, columns=['R', 'G', 'B', 'A']).div([255, 255, 255, 1])
-    if stack:
-        color_range = np.linspace(0, len(colors) - 1, qtl_size // 2 + 1)
-    else:
-        color_range = np.linspace(0, len(colors) - 1, qtl_size + 1)
-
-    result = []
-    for val in color_range:
-        frac, lower_idx = np.modf(val)
-        upper_idx = min(lower_idx + 1, len(colors) - 1)
-        blended_color = color_df.iloc[int(lower_idx)] * (1 - frac) + color_df.iloc[int(upper_idx)] * frac
-        result.append(blended_color)
-
-    if stack:
-        result += list(reversed(result))[1:] if qtl_size % 2 == 0 else list(reversed(result))
-
-    return result
-
-
-def y_axis_config(axis, ticks_y, data_keys, top, step, show_y_axis=True):
-    """Configures the properties of a given axis."""
-    axis.get_yaxis().set_visible(show_y_axis)
-    axis.set_ylim([0.0, top + 3 * step])
-    axis.set_yticks(ticks=ticks_y, labels=reversed(data_keys) if show_y_axis else [])
-    axis.tick_params(axis='both', which='major', labelsize=6)
-
-
-def plot_bar(ax, y_position, data, color, offset=0.4):
-    """Helper function to plot horizontal bars for FrameTime and DisplayedTime data."""
-    v_color = ['royalblue', 'orange']
-    ax.barh(y_position, data, color=color, left=data.cumsum() - data, height=0.4)
-    ax.vlines(0, y_position - offset, y_position + offset, colors=v_color[y_position % 2], lw=4)
-    ax.vlines(data[:5].sum(), y_position - offset + 0.15, y_position + offset - 0.15, colors='red')
-
-
-def bar_dist_plot(gs, fig, data, color):
-    """Generates a horizontal bar distribution plot for FrameTime and DisplayedTime."""
-    ax = fig.add_subplot(gs[0, 2])
-    dist_df = pd.concat([data[key].transpose() for key in data.keys()])
-    key_list = list(data.keys())
-    extended_keys = [key for key in key_list for _ in range(2)]
-
-    dist_df = dist_df.diff(axis=1).fillna(dist_df).reset_index()
-    dist_df['fileName'] = pd.Series(extended_keys)
-
-    for i, file_name in enumerate(reversed(key_list)):
-        frame_data = dist_df.query("fileName == @file_name and index == 'FrameTime'").iloc[0, 1:-1]
-        display_data = dist_df.query("fileName == @file_name and index == 'DisplayedTime'").iloc[0, 1:-1]
-
-        y_position = i * 2
-        ax.hlines(y=y_position - 0.5, xmin=0, xmax=72, colors='0.8', lw=1)
-        plot_bar(ax, y_position, frame_data, color)
-        plot_bar(ax, y_position + 1, display_data, color)
-
-    ax.get_yaxis().set_visible(False)
-    ax.vlines([-33.333, 33.333], ymin=-0.5, ymax=len(key_list) * 2 - 0.5, colors='red', linewidth=0.5)
-    ax.vlines([-16.666, 16.666], ymin=-0.5, ymax=len(key_list) * 2 - 0.5, colors='green', linewidth=0.5)
-    ax.set_ylim([-0.5, len(extended_keys) + 3.5])
-    x_axis_config(ax, 0, 72, 8)
-    ax.set_title('Percentiles')
-
-    return ax
-
-
-def bar_perf(gs, fig, mean, lows, order):
-    """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
-    ax = fig.add_subplot(gs)
-    # Filter for 'FrameTime' and 'DisplayedTime' in the mean DataFrame
-    mean_df = pd.concat([mean[key].transpose() for key in mean.keys()])
-    lows_df = pd.concat([lows[key].transpose() for key in lows.keys()])
-
-    ft_df = pd.concat(
-        [
-            lows_df.loc[lows_df.index.isin(['FrameTime'])],
-            mean_df.loc[mean_df.index.isin(['FrameTime'])].rename(columns={0: 1})
-        ],
-        axis=1
-    ).sort_index(axis=1, ascending=order).iloc[::-1]
-
-    dt_df = -pd.concat(
-        [
-            lows_df.loc[lows_df.index.isin(['DisplayedTime'])],
-            mean_df.loc[mean_df.index.isin(['DisplayedTime'])].rename(columns={0: 1})
-
-        ],
-        axis=1
-    ).sort_index(axis=1, ascending=order).iloc[::-1]
-    ft_colors = pd.DataFrame(
-        [
-            [0.75, 0.81, 1.00, 1.00],
-            [0.35, 0.51, 1.00, 1.00],
-            [0.00, 0.25, 1.00, 1.00]
-        ]
-    ).sort_index(axis=0, ascending=order)
-    dt_colors = pd.DataFrame(
-        [
-            [1.00, 0.82, 0.50, 1.00],
-            [1.00, 0.73, 0.25, 1.00],
-            [1.00, 0.65, 0.00, 1.00]
-        ]
-    ).sort_index(axis=0, ascending=order)
-
-    # Plot the bar chart for FrameTime
-    y_positions = range(len(ft_df))
-    for i, col in enumerate(ft_df):
-        ax.barh(y_positions, ft_df[col].values.flatten(), color=ft_colors.iloc[i, :])
-        ax.barh(y_positions, dt_df[col].values.flatten(), color=dt_colors.iloc[i, :])
-
-    ax.xaxis.set_visible(True)
-    ax.yaxis.set_visible(not order)
-    ax.set_yticks(y_positions)
-    ax.set_yticklabels(reversed(mean.keys()))
-    ax.tick_params(axis='y', which='major', labelsize=6)
-
-    return ax
-
-
-def var_bar(gs, fig, var, color):
-
-    rows = len(var.keys())
-    cols = 2
-    axes = [fig.add_subplot(gs[0, j]) for j in range(cols)]
-
-    for i, v in enumerate(reversed(var)):
-        for j, col in enumerate(v):
-            bars = np.cumsum(v[col].values.flatten())
-            axes[j].title.set_text(col)
-            for c, bar in enumerate(reversed(bars)):
-                axes[j].barh(i, bar, color=color[c])
-
-    axes[0].set_yticks(range(rows))
-    axes[0].set_yticklabels(reversed(list(var.keys())))
-    axes[0].tick_params(axis='both', which='major', labelsize=6)
-    for ax in axes[1:]:
-        ax.get_yaxis().set_visible(False)
-        ax.tick_params(axis='both', which='major', labelsize=6)
-    return axes
-
-
-def util_bar(gs, figure, mean, wait):
-    """Generate a performance bar chart showing only FrameTime and DisplayedTime."""
-    ax = figure.add_subplot(gs)
-    # Filter for 'FrameTime' and 'DisplayedTime' in the mean DataFrame
-    mean_df = pd.concat([mean[key].transpose() for key in mean.keys()])
-    wait_df = pd.concat([wait[key].transpose() for key in wait.keys()])
-    cpu_df = mean_df.loc[mean_df.index.isin(['CPUUtilization'])].iloc[::-1]
-    gpu_df = -mean_df.loc[mean_df.index.isin(['GPUUtilization'])].iloc[::-1]
-    cpu_wait = wait_df.loc[wait_df.index.isin(['CPUWait'])].iloc[::-1]
-    gpu_wait = -wait_df.loc[wait_df.index.isin(['GPUWait'])].iloc[::-1]
-
-    # Plot the bar chart for FrameTime
-    y_pos = range(len(cpu_df))
-    y_pos_add = [i - 0.25 for i in y_pos]
-    for i, col in enumerate(cpu_df):
-        ax.barh(y_pos, cpu_df[col].values.flatten())
-        ax.barh(y_pos, gpu_df[col].values.flatten())
-        ax.barh(y_pos, cpu_wait[col].values.flatten(), height=0.4)
-        ax.barh(y_pos, gpu_wait[col].values.flatten(), height=0.4)
-
-    ax.xaxis.set_visible(True)
-    ax.yaxis.set_visible(False)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(reversed(mean.keys()))
-    ax.tick_params(axis='y', which='major', labelsize=6)
-
-    return ax
-
-
-def x_axis_config(ax, bot, top, step):
-    ticks_x = np.arange(bot, top, step)
-    ax.get_xaxis().set_visible(True)
-    ax.set_xlim([bot, top])
-    ax.set_xticks(ticks_x)
-    ax.tick_params(axis='x', which='major', labelsize=6)
-
-
-def main(array, config, reshape_data=True, sort=False, asc=True):
-    """Main function to handle configuration and generate plots."""
-    data = reshape(array) if reshape_data else array
-    fig_dist = plt.figure(figsize=(10, 6))
-    gs_dist = grid_spec.GridSpec(1, 3, figure=fig_dist)
-
-    fig_perf = plt.figure(figsize=(10, 6))
-    gs_perf = grid_spec.GridSpec(1, 3, figure=fig_perf)
-
-    fig_var = plt.figure(figsize=(10, 6))
-    gs_var = grid_spec.GridSpec(1, 2, figure=fig_var)
-
-    c_mean = data.iloc[3, :] / data.iloc[2, :]
-    data = data.transpose()
-    data['c_mean'] = c_mean
-
-    if sort:
-        data = data.sort_values(by='c_mean', ascending=asc).transpose()
-    else:
-        data = data.transpose()
-
-    dist_plot(gs_dist, fig_dist, data.iloc[14])
-    perc_chart = bar_dist_plot(
-        gs_dist,
-        fig_dist,
-        data.iloc[8],
-        color_map(
-            config["frame_quantiles_colors"],
-            len(config["frame_quantiles"])
+class Figure:
+    def __init__(self, title=None, x=10, y=6, nrows=1, ncols=1, height_ratios=None, width_ratios=None,
+                 left=0.10, right=0.98, top=0.90, bottom=0.10, wspace=0.05, hspace=0.1):
+        self.fig = (plt.figure(figsize=(x, y)))
+        self.fig.subplots_adjust(left=left, right=right, top=top, bottom=bottom, wspace=wspace, hspace=hspace)
+        self.fig.canvas.manager.set_window_title(title=title)
+        self.gs = grid_spec.GridSpec(nrows=nrows, ncols=ncols, figure=self.fig,
+                                     height_ratios=height_ratios, width_ratios=width_ratios)
+        self.axis = [self.fig.add_subplot(self.gs[r, c]) for r in range(nrows) for c in range(ncols)]
+
+    def set_axis_x(self, icol, ticks=None, label_size=0, show_axis=True, top=None):
+        if ticks is None:
+            ticks = [0, 1]
+        (ax := self.axis[icol]).get_xaxis().set_visible(show_axis)
+        ax.set_xlim([min(ticks), top if top else max(ticks)])
+        ax.set_xticks(ticks)
+        ax.tick_params(axis='x', labelsize=label_size)
+
+    def set_axis_y(self, icol, ticks=None, data_keys=None, label_size=0, show_axis=True, bot_offset=0, top_offset=0):
+        if ticks is None:
+            ticks = [0, 1]
+        (ax := self.axis[icol]).get_yaxis().set_visible(show_axis)
+        lower = min(ticks) - bot_offset
+        upper = max(ticks) + top_offset
+        if lower == upper:
+            eps = np.finfo(float).eps  # Smallest positive float delta
+            upper += eps
+        ax.set_ylim([lower, upper])
+        ax.set_yticks(ticks, data_keys if show_axis else [])
+        ax.tick_params(axis='y', labelsize=label_size)
+
+    def set_axis_title(self, icol, title):
+        self.axis[icol].set_title(title)
+
+    def set_vlines(self, icol, *lines):
+        ax = self.axis[icol]
+        if not lines:
+            print("set_vlines warning: Missing 'lines' arg.")
+        else:
+            for i, line in enumerate(lines):
+                try:
+                    color, x_line, linestyle = line
+                    ax.vlines(x_line, ymin=-0.5, ymax=len(ax.get_yticks()) - 0.5,
+                              colors=color, linewidth=0.5, linestyle=linestyle)
+                except ValueError as e:
+                    print(f"{e}: The 'lines' arg tuple [i={i}] does not have 3 correct components: "
+                          f"(color[str], x[num], linestyle[str]).")
+
+    def set_legend(self, icol, handles, labels, bbox_to_anchor):
+        self.axis[icol].legend(
+            handles=handles,
+            labels=labels,
+            ncol=len(labels),
+            handletextpad=0.5,
+            handlelength=1.0,
+            columnspacing=-0.5,
+            fontsize=7,
+            loc='lower center',
+            bbox_to_anchor=bbox_to_anchor
         )
+
+
+def load_json(file_path) -> (dict, str):
+    """Load data from the JSON file"""
+    try:
+        with open(file_path) as file:
+            return json.load(file), None
+    except (FileNotFoundError, json.JSONDecodeError, PermissionError) as e:
+        return None, str(e)
+
+
+def sort_df(dictionary, asc=True, dvd="tTime", dvs="record"):
+    """
+    Sorts a DataFrame created from a dictionary based on a ratio of two columns.
+    Handles exceptions to prevent crashes by validating inputs and handling errors.
+    """
+    try:
+        # Attempt to create DataFrame from dictionary
+        df = pd.DataFrame.from_dict(dictionary)
+        if df.empty:
+            print("Warning: Input dictionary results in an empty DataFrame.")
+            return df
+
+        # Check for required columns
+        required_columns = [dvd, dvs]
+        for col in required_columns:
+            if col not in df.columns:
+                raise KeyError(f"Column '{col}' not found in DataFrame")
+
+        # Handle non-numeric columns by converting to numeric (coerce errors to NaN)
+        df[dvd], df[dvs] = pd.to_numeric(df[dvd], errors='coerce'), pd.to_numeric(df[dvs], errors='coerce')
+        # Replace zeros in divisor to avoid division by zero
+        df[dvs] = df[dvs].replace(0, np.nan)
+
+        # Calculate ratio and drop rows with invalid values (NaN)
+        df["ratio"] = df[dvd] / df[dvs]
+        df.dropna(subset=["ratio"], inplace=True)
+
+        # Sort by ratio
+        df.sort_values(by="ratio", ascending=asc, inplace=True)
+        return df
+
+    except KeyError as e:
+        print(f"Error: {e} Check column names.")
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return pd.DataFrame()
+
+
+def color_map(colors):
+    return LinearSegmentedColormap.from_list(
+        'cmap',
+        list(zip(np.linspace(0, 1, len(colors)), colors)),
+        N=256
     )
 
-    perc_chart.legend()
+
+def ridgeline(fig, icol, data, step=0.0625, cmap=plt.get_cmap('viridis'),
+              top=None, label_size=(None, None)):
+    def vline_color_gradient(position):
+        a = sin(2 * pi * position - 4.75)
+        b = 1 + 2 * a
+        return -(a * b / 4) + 0.75
+
+    title, categories = data
+    pad, x_min, x_max = 0, 0, 0
+    color = cmap(np.linspace(0, 1, len(categories)))[::-1]
+
+    for i, (cat_name, cat_data) in enumerate(categories.items()):
+        x, y = (np.array(list(cat_data.keys()), dtype=float),
+                np.array(list(cat_data.values()), dtype=float))
+
+        x_min, x_max = min(x_min, x.min()), max(x_max, x.max())
+        dvs = pd.to_numeric(top, errors='coerce') - x_max
+        fig.axis[icol].fill_between(x, y + pad, pad, color=color[i], ec='0.5', lw=0.2, zorder=-i)
+        fig.axis[icol].plot(x / dvs + x_max, y.cumsum() * step + pad, color='0.0', lw=0.5)
+
+        vlines = np.linspace(i, i + 1, 5)
+        gradient = np.array([vline_color_gradient(pos) for pos in vlines]).round(2).astype(str)
+        pad += step
+        fig.axis[icol].hlines(
+            vlines * step, x_max, top,
+            color=gradient, lw=0.25)
+
+    fig.set_axis_x(
+        icol=icol, ticks=np.append(np.arange(x_min, x_max, round(x_max / 17, 0)), x_max),
+        label_size=label_size[0], top=top)
+    fig.set_axis_y(icol=icol, ticks=[step * n for n, _ in enumerate(categories)], data_keys=categories.keys(),
+                   label_size=label_size[1], show_axis=not icol, top_offset=2.5 * step)
+    fig.axis[icol].text(0.005, 0.005, "Time[ms]", fontsize=label_size[0], transform=fig.axis[icol].transAxes)
+    fig.set_vlines(icol, ('black', [x_max], '-'), ('red', [33.333], '--'), ('green', [16.666], '--'))
+    fig.set_axis_title(icol=icol, title=title)
 
 
-    fps_chart = bar_perf(gs_perf[0, 0], fig_perf, 1000/data.iloc[4], 1000/data.iloc[7], False)
-    fps_chart.set_title('FPS')
-    fps_chart.vlines([-30, 30], ymin=-0.4, ymax=len(data.keys()) - 0.6, colors='red', linewidth=0.5)
-    fps_chart.vlines([-60, 60], ymin=-0.4, ymax=len(data.keys()) - 0.6, colors='green', linewidth=0.5)
-    x_axis_config(fps_chart, -120, 120, 30)
+def stacked_barh(fig, icol, data, cmap,
+                 label_size=None):
+    title, categories = data
+    color = color_map(cmap)
+    min_key, max_key = (float(k) for k in pd.DataFrame(categories.to_dict()).index[[0, -1]])
 
-    ms_chart = bar_perf(gs_perf[0, 1], fig_perf, data.iloc[4], data.iloc[7], True)
-    ms_chart.set_title('DisplayedTimes | FrameTimes')
-    ms_chart.vlines([-33.333, 33.333], ymin=-0.4, ymax=len(data.keys())-0.6, colors='red', linewidth=0.5)
-    ms_chart.vlines([-16.666, 16.666], ymin=-0.4, ymax=len(data.keys())-0.6, colors='green', linewidth=0.5)
+    fig.set_axis_x(icol=icol, ticks=np.linspace(0, 100, 11), label_size=label_size[0])
+    fig.set_axis_x(icol=icol + 2, ticks=np.linspace(min_key, max_key, 5), label_size=label_size[0])
+    fig.axis[icol].text(1.005, -0.01, "%", fontsize=label_size[0], transform=fig.axis[icol].transAxes)
+    fig.set_axis_y(icol=icol, ticks=list(range(len(categories))), data_keys=categories.keys(), label_size=label_size[1],
+                   show_axis=not icol, bot_offset=0.5, top_offset=0.5)
+    fig.set_axis_y(icol=icol + 2, ticks=[0.0], data_keys=["Time[ms]"], label_size=label_size[1],
+                   show_axis=not icol, bot_offset=0.5, top_offset=0.5)
 
-    pa1 = patch.Patch(facecolor=(0.00, 0.25, 1.00, 1.00))
-    pa2 = patch.Patch(facecolor=(1.00, 0.65, 0.00, 1.00))
-    #
-    pb1 = patch.Patch(facecolor=(0.35, 0.51, 1.00, 1.00))
-    pb2 = patch.Patch(facecolor=(1.00, 0.73, 0.25, 1.00))
-    #
-    pc1 = patch.Patch(facecolor=(0.75, 0.81, 1.00, 1.00))
-    pc2 = patch.Patch(facecolor=(1.00, 0.82, 0.50, 1.00))
+    fig.set_axis_title(icol=icol, title=title)
+    for i in np.linspace(min_key, max_key, int(max_key+1)):
+        fig.axis[icol+2].barh(y=0, width=1, left=i, color=color(i / max_key))
+    for i, (cat_name, cat_data) in enumerate(categories.items()):
+        left = 0
+        vals, v_len = list(cat_data.values()), len(cat_data.values())
+        for n, val in enumerate(vals):
+            fig.axis[icol].barh(y=i, width=val*100, left=left*100, label=cat_name, color=color(n / v_len))
+            left += val
 
-    ms_chart.legend(
-        handles=[pa1, pa2, pb1, pb2, pc1, pc2],
-        labels=['', 'Avg    ', '', 'Low 5%    ', '', 'Low 1%'],
-        ncol=6,
-        handletextpad=0.5,
-        handlelength=1.0,
-        columnspacing=-0.5,
-        fontsize=7,
-        loc='lower center',
-        bbox_to_anchor=(0, -0.12)
+
+def barh(fig, icol, i_bar, data, cmap,
+         label_size=None):
+    def perf_barh():
+        fig.set_axis_x(icol=icol, ticks=np.linspace(-128, 128, 17, dtype=int), label_size=label_size)
+        fig.axis[icol].text(0.005, 0.005, "Time[ms]", fontsize=label_size, transform=fig.axis[icol].transAxes)
+        fig.set_vlines(icol, ('black', [0], '-'), ('red', [-33.333, 33.333], '--'), ('green', [-16.666, 16.666], '--'))
+        fig.set_axis_title(icol=icol, title="Average Displayed and FrameTime & Lows")
+        for i, (cat_name, cat_data) in enumerate(categories.items()):
+            v_len = len(cat_data.values())
+            for c, val in enumerate(cat_data.values()):
+                fig.axis[icol].barh(i, (-1) ** i_bar * val, color=color(c / v_len))
+
+    def util_barh():
+        fig.set_axis_x(icol=icol, ticks=np.linspace(-100, 100, 21, dtype=int), label_size=label_size)
+        fig.axis[icol].text(0.005, 0.005, "%", fontsize=label_size, transform=fig.axis[icol].transAxes)
+        fig.set_vlines(icol, ('black', [0], '-'))
+        fig.set_axis_title(icol=icol, title="Average GPU and CPU usage")
+        for i, (cat_name, cat_data) in enumerate(categories.items()):
+            fig.axis[icol].barh(i, (-1) ** i_bar * cat_data, color=color(i_bar))
+
+    title, categories = data
+    fig.set_axis_y(icol=icol, ticks=list(range(len(categories))), data_keys=categories.keys(), label_size=label_size,
+                   show_axis=not icol, bot_offset=0.5, top_offset=0.5)
+    color = color_map(cmap[title])
+
+    if icol:
+        util_barh()
+    else:
+        perf_barh()
+
+
+def main(data):
+    sorted_df = sort_df(data, asc=False)
+
+    n_datasets = len(sorted_df)
+    fig_height = int(max(6.0, n_datasets * 0.5))
+    keys = ['dist', 'delta_dist', 'mean', 'lows', 'waitTime']
+    dist_df, var_df, mean_df, low_df, wait_df = (
+        pd.DataFrame.from_dict(sorted_df[key].to_dict(), orient='index')
+        for key in keys
     )
 
-    x_axis_config(ms_chart, -72, 72, 8)
+    for col in ['FrameTime', 'DisplayedTime']:
+        low_df[col] = [dict(sorted({**d, '1.00': mean_df.loc[idx, col]}.items(),
+                                   key=lambda x: float(x[0])))
+                       for idx, d in low_df[col].items()]
 
-    util_plot = util_bar(gs_perf[0, 2], fig_perf, data.iloc[4], data.iloc[5]/data.iloc[3]*100)
-    util_plot.set_title('Util Average & Wait Time %')
-    x_axis_config(util_plot, -100, 100, 20)
+    dist_plot, var_plot, mean_plot = (Figure(title='Distribution Summary', y=fig_height, ncols=2),
+                                      Figure(title='Stability', y=fig_height, ncols=2, nrows=2,
+                                             height_ratios=[49, 1], bottom=0.04),
+                                      Figure(title='Performance Summary', y=fig_height, ncols=2))
+
+    cmap_dict = dict(
+        FrameTime=[
+            (0.75, 0.81, 1.00, 1.00),
+            (0.35, 0.51, 1.00, 1.00),
+            (0.00, 0.25, 1.00, 1.00)
+        ],
+        DisplayedTime=[
+            (1.00, 0.82, 0.50, 1.00),
+            (1.00, 0.73, 0.25, 1.00),
+            (1.00, 0.65, 0.00, 1.00)
+        ],
+        CPUUtilization=[
+            (0.00, 0.25, 1.00, 1.00),
+            (0.00, 0.00, 0.00, 0.00),
+            (0.00, 0.00, 0.00, 0.00)
+        ],
+        GPUUtilization=[
+            (1.00, 0.65, 0.00, 1.00),
+            (0.00, 0.00, 0.00, 0.00),
+            (0.00, 0.00, 0.00, 0.00)
+        ],
+        Variability=[
+            (0.44, 0.68, 0.28, 1.00),
+            (0.60, 0.80, 0.20, 1.00),
+            (1.00, 0.75, 0.00, 1.00),
+            (0.93, 0.49, 0.19, 1.00),
+            (0.75, 0.00, 0.00, 1.00)
+        ]
+    )
+
+    mean_patch_list = []
+    for col_pair in zip(cmap_dict['FrameTime'], cmap_dict['DisplayedTime']):
+        mean_patch_list += [patch.Patch(facecolor=col_tup) for col_tup in col_pair]
+
+    for icol, i_dist in enumerate(dist_df.items()):
+        ridgeline(fig=dist_plot, icol=icol, data=i_dist, step=0.0625, label_size=(6, 6), top=75)
+
+    for icol, i_var in enumerate(var_df.items()):
+        stacked_barh(fig=var_plot, icol=icol, data=i_var, cmap=cmap_dict['Variability'], label_size=(6, 6))
+
+    for i_bar, i_mean in enumerate(low_df.items()):
+        barh(mean_plot, 0, i_bar, i_mean, cmap_dict, label_size=6)
+        mean_plot.set_legend(
+            icol=0, handles=reversed(mean_patch_list),
+            labels=['', 'Avg    ', '', 'Low 5%    ', '', 'Low 1%'], bbox_to_anchor=(0.5, -0.1))
 
     pa1 = patch.Patch(facecolor='blue')
     pa2 = patch.Patch(facecolor='orange')
-    #
     pb1 = patch.Patch(facecolor='green')
     pb2 = patch.Patch(facecolor='red')
 
-    util_plot.legend(
-        handles=[pa1, pa2, pb1, pb2],
-        labels=['CPU%    ', 'GPU%    ', 'CPU Wait%    ', 'GPU Wait%'],
-        ncol=4,
-        handletextpad=0.5,
-        handlelength=1.0,
-        columnspacing=-0.5,
-        fontsize=7,
-        loc='lower center',
-        bbox_to_anchor=(0.5, -0.12)
-    )
-
-    var_bar(gs_var,
-            fig_var,
-            data.iloc[13],
-            color_map(
-                config["frame_delta_colors"],
-                config["delta_bins"]["bins"],
-                False,
-                False)
-            )
-
-    fig_dist.subplots_adjust(left=0.2, right=0.99, top=0.90, bottom=0.10, wspace=0)
-    fig_dist.canvas.manager.set_window_title('Distribution Summary')
-
-    fig_perf.subplots_adjust(left=0.2, right=0.99, top=0.90, bottom=0.10, wspace=0)
-    fig_perf.canvas.manager.set_window_title('Performance Summary')
-
-    fig_var.subplots_adjust(left=0.2, right=0.99, top=0.90, bottom=0.10, wspace=0)
-    fig_var.canvas.manager.set_window_title('Stability')
+    for i_bar, i_mean in enumerate(mean_df[['CPUUtilization', 'GPUUtilization']].items()):
+        barh(mean_plot, 1, i_bar, i_mean, cmap_dict, label_size=6)
+        mean_plot.set_legend(
+            icol=1, handles=[pa1, pa2],
+            labels=['CPU%    ', 'GPU%    '], bbox_to_anchor=(0.5, -0.1))
 
     plt.show()
 
 
 if __name__ == '__main__':
-    Main.main(False)
+    config, error = load_json('config.json')
+
+    if error is not None:
+        print(f'Config Load error: {error}\n'
+              f'Closing Present Mon Performance Viewer')
+        quit()
+
+    # Output_27-02-25_T141345
+    # Output_01-03-25_T183524
+    perf_data, error = load_json('Output_27-02-25_T141345.json')
+    if error is not None:
+        print(f'Data Load error: {error}\n'
+              f'Closing Present Mon Performance Viewer')
+        quit()
+
+    main(perf_data)

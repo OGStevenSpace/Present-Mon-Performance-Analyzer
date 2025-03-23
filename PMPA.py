@@ -44,15 +44,14 @@ def read_file(file_path):
 
 def process_files(config, file_paths, num_files):
     """Process each selected file and summarize data according to config."""
-    output_df = pd.DataFrame()
+    output_dict = {}
 
     for idx, file_path in enumerate(file_paths):
         data = read_file(file_path)
         time_data = data[config["times_cols"]]
         data_means = data[config["data_means"]].mean()
 
-        summary = {
-            "fileName": os.path.basename(file_path),
+        output_dict[os.path.splitext(os.path.basename(file_path))[0]] = {
             "presentMode": data["PresentMode"].iloc[-1],
             "api": data["PresentRuntime"].iloc[-1],
             "record": len(data),
@@ -61,7 +60,7 @@ def process_files(config, file_paths, num_files):
             "waitTime": data[["CPUWait", "GPUWait"]].sum().to_dict(),
             "utilStat": data[["CPUUtilization", "GPUUtilization"]].quantile(config["util_quantiles"]).to_dict(),
             "lows": calculate_low_percentiles(time_data, config["low_n%"]).to_dict(),
-            "percentiles": time_data.quantile(config["frame_quantiles"]).to_dict(),
+            "percentiles": time_data.quantile(list(map(float, config['frame_quantiles'].keys()))).to_dict(),
             "mad": time_data.sub(data_means[["FrameTime", "DisplayedTime"]]).abs().mean().to_dict(),
             "std": time_data.std().to_dict(),
             "skew": time_data.skew().to_dict(),
@@ -71,14 +70,13 @@ def process_files(config, file_paths, num_files):
             ).to_dict(),
             "dist": calculate_frequency(
                 time_data, config["dist_bins"]["step"], config["dist_bins"]["bins"]
-            ).to_dict(),
+            ).to_dict()
         }
 
-        output_df = pd.concat([output_df, pd.DataFrame([summary])], ignore_index=True)
         progress = int((idx + 1) / num_files * 100)
         print(f"\rProcessing Data ... Progress: {progress}%", end="")
 
-    return output_df
+    return pd.DataFrame.from_dict(output_dict, orient='index')
 
 
 def main(file_paths, num_files, config):

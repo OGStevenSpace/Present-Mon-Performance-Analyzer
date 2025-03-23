@@ -6,6 +6,8 @@ import json
 import tkinter as tk
 from tkinter import filedialog
 
+import PMPV2
+
 
 def load_config():
     """Load configuration from the JSON file."""
@@ -43,7 +45,7 @@ def main(out_flag=True):
     output_df = PMPA.main(file_paths, num_files, config)
     if out_flag:
         save_output(output_df, output_path)
-    PMPV.main(output_df, config, sort=True)
+    PMPV2.main(output_df)
 
 
 if __name__ == '__main__':
