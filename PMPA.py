@@ -39,7 +39,12 @@ def calculate_frequency(array, step, bins, as_percentage=True):
 
 def read_file(file_path):
     """Read CSV file into DataFrame."""
-    return pd.read_csv(file_path)
+    with open(file_path) as f:
+        first_line = f.readline().strip()
+        if first_line == 'os,cpu,gpu,ram,kernel,driver,cpuscheduler':
+            return "mango", pd.read_csv(file_path, skiprows=2)
+        else:
+            return "pmon", pd.read_csv(file_path)
 
 
 def process_files(config, file_paths, num_files):
@@ -47,10 +52,26 @@ def process_files(config, file_paths, num_files):
     output_dict = {}
 
     for idx, file_path in enumerate(file_paths):
-        data = read_file(file_path)
+        report_type, data = read_file(file_path)
+        if report_type == "mango":
+            data[["PresentRuntime",
+                  "PresentMode",
+                  "DisplayedTime",
+                  "CPUWait",
+                  "GPUWait",
+                  "CPUFrequency",
+                  "GPUFrequency"]] = 0
+            data.rename(
+                columns={
+                    "frametime": "FrameTime",
+                    "cpu_load": "CPUUtilization",
+                    "gpu_load": "GPUUtilization",
+                    "gpu_vram_used": "GPUMemorySizeUsed"},
+                inplace=True
+            )
+            data["CPUStartTime"] = data["FrameTime"].cumsum() - data["FrameTime"].iloc[0]
         time_data = data[config["times_cols"]]
         data_means = data[config["data_means"]].mean()
-
         output_dict[os.path.splitext(os.path.basename(file_path))[0]] = {
             "presentMode": data["PresentMode"].iloc[-1],
             "api": data["PresentRuntime"].iloc[-1],
