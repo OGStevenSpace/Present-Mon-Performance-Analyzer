@@ -8,13 +8,11 @@ import matplotlib.patches as patch
 from matplotlib.colors import LinearSegmentedColormap
 import json
 
-import Main
-
 
 class Figure:
-    def __init__(self, title=None, x=16, y=9, nrows=1, ncols=1, height_ratios=None, width_ratios=None,
+    def __init__(self, title=None, x=10, y=6, nrows=1, ncols=1, height_ratios=None, width_ratios=None,
                  left=0.10, right=0.98, top=0.90, bottom=0.10, wspace=0.05, hspace=0.1):
-        self.fig = (plt.figure(figsize=(16, 9)))
+        self.fig = (plt.figure(figsize=(x, y)))
         self.fig.subplots_adjust(left=left, right=right, top=top, bottom=bottom, wspace=wspace, hspace=hspace)
         self.fig.canvas.manager.set_window_title(title=title)
         self.gs = grid_spec.GridSpec(nrows=nrows, ncols=ncols, figure=self.fig,
@@ -205,7 +203,7 @@ def barh(fig, icol, i_bar, data, cmap,
 
     def util_barh():
         fig.set_axis_x(icol=icol, ticks=np.linspace(-100, 100, 21, dtype=int), label_size=label_size)
-        fig.axis[icol].text(1.005, -0.01, "%", fontsize=label_size, transform=fig.axis[icol].transAxes)
+        fig.axis[icol].text(0.005, 0.005, "%", fontsize=label_size, transform=fig.axis[icol].transAxes)
         fig.set_vlines(icol, ('black', [0], '-'))
         fig.set_axis_title(icol=icol, title="Average GPU and CPU usage")
         for i, (cat_name, cat_data) in enumerate(categories.items()):
@@ -313,8 +311,7 @@ if __name__ == '__main__':
 
     # Output_27-02-25_T141345
     # Output_01-03-25_T183524
-    paths, error = Main.open_files()
-    perf_data, error = load_json(paths[0])
+    perf_data, error = load_json('Output_27-02-25_T141345.json')
     if error is not None:
         print(f'Data Load error: {error}\n'
               f'Closing Present Mon Performance Viewer')

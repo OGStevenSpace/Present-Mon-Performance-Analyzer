@@ -21,10 +21,10 @@ def open_files():
     return file_paths, len(file_paths)
 
 
-def create_output_path():
+def create_output_path(path):
     """Generate an output file path in the user's Documents directory."""
     timestamp = datetime.datetime.now().strftime('%d-%m-%y_T%H%M%S')
-    return os.path.join(os.path.expanduser('~'), 'Documents', f"Output_{timestamp}.json")
+    return f"{path}/Output_{timestamp}.json"
 
 
 def save_output(output_df, path):
@@ -34,8 +34,8 @@ def save_output(output_df, path):
 
 def main(out_flag=True):
     config = load_config()
-    output_path = create_output_path()
     file_paths, num_files = open_files()
+    output_path = create_output_path("/".join(file_paths[0].split("/")[:-1]))
 
     output_df = PMPA.main(file_paths, num_files, config)
     if out_flag:
