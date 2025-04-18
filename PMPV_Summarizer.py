@@ -36,6 +36,7 @@ def main():
         mad_df[column] = pd.DataFrame.from_dict(data["mad"], orient='index')["FrameTime"]
     dt_df.sort_values(by=['_NATIVE'], inplace=True)
     ft_df.sort_values(by=['_NATIVE'], inplace=True)
+    
     mad_df.sort_values(by=['_NATIVE'], inplace=True)
     dt_plot = matrix_heatmap(dt_df, 'turbo', vmin=8, vmax=30)
     ft_plot = matrix_heatmap(ft_df, 'turbo', vmin=8, vmax=30)
