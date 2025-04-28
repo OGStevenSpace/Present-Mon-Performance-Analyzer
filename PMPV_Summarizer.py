@@ -34,16 +34,19 @@ def main():
         dt_df[column] = pd.DataFrame.from_dict(data["mean"], orient='index')["DisplayedTime"]
         ft_df[column] = pd.DataFrame.from_dict(data["mean"], orient='index')["FrameTime"]
         mad_df[column] = pd.DataFrame.from_dict(data["mad"], orient='index')["FrameTime"]
-    dt_df.sort_values(by=['_NATIVE'], inplace=True)
-    ft_df.sort_values(by=['_NATIVE'], inplace=True)
-    
-    mad_df.sort_values(by=['_NATIVE'], inplace=True)
+
+    try:
+        dt_df.sort_values(by=['_NATIVE'], inplace=True)
+        ft_df.sort_values(by=['_NATIVE'], inplace=True)
+        mad_df.sort_values(by=['_NATIVE'], inplace=True)
+    except Exception as e:
+        print(e)
+
     dt_plot = matrix_heatmap(dt_df, 'turbo', vmin=8, vmax=30)
     ft_plot = matrix_heatmap(ft_df, 'turbo', vmin=8, vmax=30)
     mad_plot = matrix_heatmap(mad_df, 'viridis', vmin=0, vmax=4)
     plt.subplots_adjust(top=0.99, bottom=0.13, left=0.055, right=1)
     plt.show()
-
 
 
 if __name__ == '__main__':
