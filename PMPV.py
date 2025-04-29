@@ -210,7 +210,7 @@ def barh(fig, icol, i_bar, data, cmap,
         fig.set_axis_title(icol=icol, title="Average GPU and CPU usage")
         for i, (cat_name, cat_data) in enumerate(categories.items()):
             if title == "CPUWait" or title == "GPUWait":
-                height = 0.5
+                height = 0.3
             else:
                 height = 0.8
             fig.axis[icol].barh(i, (-1) ** i_bar * cat_data, color=color(i_bar), height=height)
@@ -272,12 +272,12 @@ def main(data):
             (0.00, 0.00, 0.00, 0.00)
         ],
         CPUWait=[
-            (1.00, 0.00, 0.00, 1.00),
+            (1.00, 0.00, 0.00, 0.50),
             (0.00, 0.00, 0.00, 0.00),
             (0.00, 0.00, 0.00, 0.00)
         ],
         GPUWait=[
-            (0.00, 1.00, 0.00, 1.00),
+            (0.00, 1.00, 0.00, 0.50),
             (0.00, 0.00, 0.00, 0.00),
             (0.00, 0.00, 0.00, 0.00)
         ],
