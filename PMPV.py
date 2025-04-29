@@ -209,7 +209,12 @@ def barh(fig, icol, i_bar, data, cmap,
         fig.set_vlines(icol, ('black', [0], '-'))
         fig.set_axis_title(icol=icol, title="Average GPU and CPU usage")
         for i, (cat_name, cat_data) in enumerate(categories.items()):
-            fig.axis[icol].barh(i, (-1) ** i_bar * cat_data, color=color(i_bar))
+            if title == "CPUWait" or title == "GPUWait":
+                height = 0.5
+            else:
+                height = 0.8
+            fig.axis[icol].barh(i, (-1) ** i_bar * cat_data, color=color(i_bar), height=height)
+            #fig.axis[icol].barh(i, (-1) ** i_bar * cat_data, color=color(i_bar))
 
     title, categories = data
     fig.set_axis_y(icol=icol, ticks=list(range(len(categories))), data_keys=categories.keys(), label_size=label_size,
@@ -227,11 +232,13 @@ def main(data):
 
     n_datasets = len(sorted_df)
     fig_height = int(max(6.0, n_datasets * 0.5))
-    keys = ['dist', 'delta_dist', 'mean', 'lows', 'waitTime']
-    dist_df, var_df, mean_df, low_df, wait_df = (
+    keys = ['tTime', 'dist', 'delta_dist', 'mean', 'lows', 'waitTime']
+    time_df, dist_df, var_df, mean_df, low_df, wait_df = (
         pd.DataFrame.from_dict(sorted_df[key].to_dict(), orient='index')
         for key in keys
     )
+
+    wait_df = wait_df.div(time_df[0], axis=0) * 100
 
     for col in ['FrameTime', 'DisplayedTime']:
         low_df[col] = [dict(sorted({**d, '1.00': mean_df.loc[idx, col]}.items(),
@@ -264,6 +271,16 @@ def main(data):
             (0.00, 0.00, 0.00, 0.00),
             (0.00, 0.00, 0.00, 0.00)
         ],
+        CPUWait=[
+            (1.00, 0.00, 0.00, 1.00),
+            (0.00, 0.00, 0.00, 0.00),
+            (0.00, 0.00, 0.00, 0.00)
+        ],
+        GPUWait=[
+            (0.00, 1.00, 0.00, 1.00),
+            (0.00, 0.00, 0.00, 0.00),
+            (0.00, 0.00, 0.00, 0.00)
+        ],
         Variability=[
             (0.44, 0.68, 0.28, 1.00),
             (0.60, 0.80, 0.20, 1.00),
@@ -284,6 +301,7 @@ def main(data):
         stacked_barh(fig=var_plot, icol=icol, data=i_var, cmap=cmap_dict['Variability'], label_size=(6, 6))
 
     for i_bar, i_mean in enumerate(low_df.items()):
+
         barh(mean_plot, 0, i_bar, i_mean, cmap_dict, label_size=6)
         mean_plot.set_legend(
             icol=0, handles=reversed(mean_patch_list),
@@ -294,7 +312,13 @@ def main(data):
     pb1 = patch.Patch(facecolor='green')
     pb2 = patch.Patch(facecolor='red')
 
-    for i_bar, i_mean in enumerate(mean_df[['CPUUtilization', 'GPUUtilization']].items()):
+    for i_bar, i_mean in enumerate(pd.concat([mean_df, wait_df], axis=1)[
+                                       [
+                                           'CPUUtilization',
+                                           'GPUUtilization',
+                                           'CPUWait',
+                                           'GPUWait'
+                                       ]].items()):
         barh(mean_plot, 1, i_bar, i_mean, cmap_dict, label_size=6)
         mean_plot.set_legend(
             icol=1, handles=[pa1, pa2],
