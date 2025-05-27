@@ -7,7 +7,6 @@ import matplotlib.gridspec as grid_spec
 import matplotlib.patches as patch
 from matplotlib.colors import LinearSegmentedColormap
 import json
-
 import Main
 
 
@@ -192,10 +191,10 @@ def stacked_barh(fig, icol, data, cmap,
 
 
 def barh(fig, icol, i_bar, data, cmap,
-         label_size=None):
+         label_size=(None, None)):
     def perf_barh():
-        fig.set_axis_x(icol=icol, ticks=np.linspace(-128, 128, 17, dtype=int), label_size=label_size)
-        fig.axis[icol].text(0.005, 0.005, "Time[ms]", fontsize=label_size, transform=fig.axis[icol].transAxes)
+        fig.set_axis_x(icol=icol, ticks=np.linspace(-128, 128, 17, dtype=int), label_size=label_size[0])
+        fig.axis[icol].text(0.005, 0.005, "Time[ms]", fontsize=label_size[0], transform=fig.axis[icol].transAxes)
         fig.set_vlines(icol, ('black', [0], '-'), ('red', [-33.333, 33.333], '--'), ('green', [-16.666, 16.666], '--'))
         fig.set_axis_title(icol=icol, title="Average Displayed and FrameTime & Lows")
         for i, (cat_name, cat_data) in enumerate(categories.items()):
@@ -204,8 +203,8 @@ def barh(fig, icol, i_bar, data, cmap,
                 fig.axis[icol].barh(i, (-1) ** i_bar * val, color=color(c / v_len))
 
     def util_barh():
-        fig.set_axis_x(icol=icol, ticks=np.linspace(-100, 100, 21, dtype=int), label_size=label_size)
-        fig.axis[icol].text(1.005, -0.01, "%", fontsize=label_size, transform=fig.axis[icol].transAxes)
+        fig.set_axis_x(icol=icol, ticks=np.linspace(-100, 100, 21, dtype=int), label_size=label_size[0])
+        fig.axis[icol].text(1.005, -0.01, "%", fontsize=label_size[0], transform=fig.axis[icol].transAxes)
         fig.set_vlines(icol, ('black', [0], '-'))
         fig.set_axis_title(icol=icol, title="Average GPU and CPU usage")
         for i, (cat_name, cat_data) in enumerate(categories.items()):
@@ -217,7 +216,7 @@ def barh(fig, icol, i_bar, data, cmap,
             #fig.axis[icol].barh(i, (-1) ** i_bar * cat_data, color=color(i_bar))
 
     title, categories = data
-    fig.set_axis_y(icol=icol, ticks=list(range(len(categories))), data_keys=categories.keys(), label_size=label_size,
+    fig.set_axis_y(icol=icol, ticks=list(range(len(categories))), data_keys=categories.keys(), label_size=label_size[1],
                    show_axis=not icol, bot_offset=0.5, top_offset=0.5)
     color = color_map(cmap[title])
 
@@ -295,14 +294,14 @@ def main(data):
         mean_patch_list += [patch.Patch(facecolor=col_tup) for col_tup in col_pair]
 
     for icol, i_dist in enumerate(dist_df.items()):
-        ridgeline(fig=dist_plot, icol=icol, data=i_dist, step=0.0625, label_size=(6, 6), top=75)
+        ridgeline(fig=dist_plot, icol=icol, data=i_dist, step=0.0625, label_size=(6, 10), top=75)
 
     for icol, i_var in enumerate(var_df.items()):
-        stacked_barh(fig=var_plot, icol=icol, data=i_var, cmap=cmap_dict['Variability'], label_size=(6, 6))
+        stacked_barh(fig=var_plot, icol=icol, data=i_var, cmap=cmap_dict['Variability'], label_size=(6, 10))
 
     for i_bar, i_mean in enumerate(low_df.items()):
 
-        barh(mean_plot, 0, i_bar, i_mean, cmap_dict, label_size=6)
+        barh(mean_plot, 0, i_bar, i_mean, cmap_dict, label_size=(6, 12))
         mean_plot.set_legend(
             icol=0, handles=reversed(mean_patch_list),
             labels=['', 'Avg    ', '', 'Low 5%    ', '', 'Low 1%'], bbox_to_anchor=(0.5, -0.1))
@@ -319,7 +318,7 @@ def main(data):
                                            'CPUWait',
                                            'GPUWait'
                                        ]].items()):
-        barh(mean_plot, 1, i_bar, i_mean, cmap_dict, label_size=6)
+        barh(mean_plot, 1, i_bar, i_mean, cmap_dict, label_size=(6, 10))
         mean_plot.set_legend(
             icol=1, handles=[pa1, pa2],
             labels=['CPU%    ', 'GPU%    '], bbox_to_anchor=(0.5, -0.1))
