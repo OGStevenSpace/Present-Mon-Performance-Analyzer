@@ -31,9 +31,16 @@ def main():
     for file_path in file_paths:
         data, status = load_json(file_path)
         column = os.path.splitext(os.path.basename(file_path))[0]
-        dt_df[column] = pd.DataFrame.from_dict(data["mean"], orient='index')["DisplayedTime"]
-        ft_df[column] = pd.DataFrame.from_dict(data["mean"], orient='index')["FrameTime"]
-        mad_df[column] = pd.DataFrame.from_dict(data["mad"], orient='index')["FrameTime"]
+        temp_dt_df = pd.DataFrame.from_dict(data["mean"], orient='index')[["DisplayedTime"]]
+        temp_ft_df = pd.DataFrame.from_dict(data["mean"], orient='index')[["FrameTime"]]
+        temp_mad_df = pd.DataFrame.from_dict(data["mad"], orient='index')[["FrameTime"]]
+        temp_dt_df.columns = [column]
+        temp_ft_df.columns = [column]
+        temp_mad_df.columns = [column]
+
+        dt_df = pd.merge(dt_df, temp_dt_df, left_index=True, right_index=True, how='outer')
+        ft_df = pd.merge(ft_df, temp_ft_df, left_index=True, right_index=True, how='outer')
+        mad_df = pd.merge(mad_df, temp_mad_df, left_index=True, right_index=True, how='outer')
 
     try:
         dt_df.sort_values(by=['_NATIVE'], inplace=True)
